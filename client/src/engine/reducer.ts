@@ -41,6 +41,10 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       };
       nextState.moduleState.playerPositions[newPid] = 0;
       break;
+
+    case 'DISCORD_PINNED':
+      nextState.discordInviteLink = event.payload.link;
+      break;
   }
 
   return nextState;

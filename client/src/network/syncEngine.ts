@@ -9,6 +9,7 @@ export class SyncEngine {
   public state: EngineState;
   public playerId: string;
   public isHost: boolean;
+  public chatHistory: any[] = [];
 
   private lobbyId: string;
   private secretHash: string;
@@ -19,6 +20,7 @@ export class SyncEngine {
   private webrtcManager: WebRTCManager;
   private onStateUpdate: (state: EngineState) => void;
   private onError?: (msg: string) => void;
+  private onChatReceived?: (chat: any) => void;
 
   constructor(
     initialState: EngineState,
@@ -29,7 +31,8 @@ export class SyncEngine {
     signalingUrl: string,
     restUrl: string,
     onStateUpdate: (state: EngineState) => void,
-    onError?: (msg: string) => void
+    onError?: (msg: string) => void,
+    onChatReceived?: (chat: any) => void
   ) {
     this.state = initialState;
     this.lobbyId = lobbyId;
@@ -40,6 +43,7 @@ export class SyncEngine {
     this.restUrl = restUrl;
     this.onStateUpdate = onStateUpdate;
     this.onError = onError;
+    this.onChatReceived = onChatReceived;
 
     this.signalingClient = new SignalingClient(this.signalingUrl);
     this.webrtcManager = new WebRTCManager(this.isHost, this.signalingClient);
@@ -92,8 +96,19 @@ export class SyncEngine {
       } else if (data.type === 'SYNC_STATE') {
         if (!this.isHost) {
           this.state = data.state;
+          if (data.chatHistory) {
+            this.chatHistory = data.chatHistory;
+            this.chatHistory.forEach(c => this.onChatReceived?.(c));
+          }
           this.onStateUpdate(this.state);
         }
+      } else if (data.type === 'CHAT') {
+        if (this.isHost) {
+          this.chatHistory.push(data.chat);
+          if (this.chatHistory.length > 50) this.chatHistory.shift();
+          this.webrtcManager.broadcast({ type: 'CHAT', chat: data.chat });
+        }
+        this.onChatReceived?.(data.chat);
       } else if (data.type === 'ERROR') {
         this.onError?.(data.message);
       }
@@ -122,10 +137,11 @@ export class SyncEngine {
           events: [joinEvent]
         });
 
-        // Send full synchronized state to the newly connected peer
+        // Send full synchronized state and chat history to the newly connected peer
         this.webrtcManager.sendTo(peerId, {
           type: 'SYNC_STATE',
-          state: this.state
+          state: this.state,
+          chatHistory: this.chatHistory
         });
 
         // Save the updated state to the backend
@@ -145,7 +161,7 @@ export class SyncEngine {
     };
   }
 
-  public dispatch(cmdType: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN', payload?: any) {
+  public dispatch(cmdType: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE' | 'PIN_DISCORD', payload?: any) {
     const command: EngineCommand = {
       type: cmdType,
       playerId: this.playerId,
@@ -223,6 +239,30 @@ export class SyncEngine {
       }
     } catch (err) {
       console.error('State backup REST error:', err);
+    }
+  }
+
+  public sendChat(text: string) {
+    const chat = {
+      id: Math.random().toString(36).substring(7),
+      senderId: this.playerId,
+      senderColor: this.state.players[this.playerId]?.color || '#ef4444',
+      senderEmoji: this.state.players[this.playerId]?.emojiFace || '🦊',
+      text,
+      timestamp: Date.now()
+    };
+
+    if (this.isHost) {
+      this.chatHistory.push(chat);
+      if (this.chatHistory.length > 50) this.chatHistory.shift();
+      this.webrtcManager.broadcast({ type: 'CHAT', chat });
+      this.onChatReceived?.(chat);
+    } else {
+      try {
+        this.webrtcManager.broadcast({ type: 'CHAT', chat });
+      } catch (err: any) {
+        console.error('Failed to send chat over P2P:', err);
+      }
     }
   }
 

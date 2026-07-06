@@ -18,6 +18,26 @@ const WS_URL = 'ws://localhost:3000';
 
 const app = document.getElementById('app');
 
+// Local storage helper for avatar configuration
+function getSavedAvatar() {
+  const saved = localStorage.getItem('webtabletop_avatar');
+  if (saved) {
+    try {
+      return JSON.parse(saved);
+    } catch (e) {
+      // fallback
+    }
+  }
+  return { emojiFace: '🦊', color: '#ef4444', skinTone: 'light' };
+}
+
+function saveAvatarTraits() {
+  const emoji = (document.getElementById('avatar-emoji') as HTMLSelectElement).value;
+  const color = (document.getElementById('avatar-color') as HTMLInputElement).value;
+  const skin = (document.getElementById('avatar-skin') as HTMLSelectElement).value;
+  localStorage.setItem('webtabletop_avatar', JSON.stringify({ emojiFace: emoji, color, skinTone: skin }));
+}
+
 function renderMatchmaking() {
   if (!app) return;
   isReplayMode = false;
@@ -25,6 +45,8 @@ function renderMatchmaking() {
     replayEngine.destroy();
     replayEngine = null;
   }
+
+  const traits = getSavedAvatar();
 
   app.innerHTML = `
     <div class="sandbox-panel" style="grid-column: span 2; max-width: 600px; margin: 0 auto; width: 100%;">
@@ -34,6 +56,38 @@ function renderMatchmaking() {
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 10px;">
+        
+        <!-- Avatar Customizer Section -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+          <h3 style="margin-top: 0;">Configure Your Pawn Avatar</h3>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-size: 12px; color: var(--text-muted);">Emoji Head:</label>
+              <select id="avatar-emoji" style="background: #1e293b; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border);">
+                <option value="🦊" ${traits.emojiFace === '🦊' ? 'selected' : ''}>🦊 Fox</option>
+                <option value="🐼" ${traits.emojiFace === '🐼' ? 'selected' : ''}>🐼 Panda</option>
+                <option value="🐸" ${traits.emojiFace === '🐸' ? 'selected' : ''}>🐸 Frog</option>
+                <option value="🐱" ${traits.emojiFace === '🐱' ? 'selected' : ''}>🐱 Cat</option>
+                <option value="🐯" ${traits.emojiFace === '🐯' ? 'selected' : ''}>🐯 Tiger</option>
+                <option value="🦁" ${traits.emojiFace === '🦁' ? 'selected' : ''}>🦁 Lion</option>
+                <option value="🤖" ${traits.emojiFace === '🤖' ? 'selected' : ''}>🤖 Robot</option>
+              </select>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 4px;">
+              <label style="font-size: 12px; color: var(--text-muted);">Skin Tone:</label>
+              <select id="avatar-skin" style="background: #1e293b; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border);">
+                <option value="light" ${traits.skinTone === 'light' ? 'selected' : ''}>Light</option>
+                <option value="medium" ${traits.skinTone === 'medium' ? 'selected' : ''}>Medium</option>
+                <option value="dark" ${traits.skinTone === 'dark' ? 'selected' : ''}>Dark</option>
+              </select>
+            </div>
+          </div>
+          <div style="display: flex; gap: 10px; align-items: center;">
+            <label style="font-size: 12px; color: var(--text-muted);">Pawn Base Color:</label>
+            <input type="color" id="avatar-color" value="${traits.color}" style="background: transparent; border: none; width: 50px; height: 32px; cursor: pointer;">
+          </div>
+        </div>
+
         <div style="border-bottom: 1px solid var(--panel-border); padding-bottom: 16px;">
           <h3>Create a New Lobby</h3>
           <button class="action-btn" id="btn-create-lobby">Host a Game</button>
@@ -69,17 +123,23 @@ function renderMatchmaking() {
     </div>
   `;
 
+  // Bind customizer change listeners
+  document.getElementById('avatar-emoji')?.addEventListener('change', saveAvatarTraits);
+  document.getElementById('avatar-color')?.addEventListener('change', saveAvatarTraits);
+  document.getElementById('avatar-skin')?.addEventListener('change', saveAvatarTraits);
+
   // Bind actions
   document.getElementById('btn-create-lobby')?.addEventListener('click', async () => {
     showError('');
+    const userTraits = getSavedAvatar();
     try {
       const res = await fetch(`${REST_URL}/api/lobby/create`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ traits: { emojiFace: '🦊', color: '#ef4444' } })
+        body: JSON.stringify({ traits: userTraits })
       });
       const data = await res.json();
-      initializeSync(data.lobbyId, data.playerId, data.secretHash, true);
+      initializeSync(data.lobbyId, data.playerId, data.secretHash, true, undefined, userTraits);
     } catch (err: any) {
       showError(`Failed to create lobby: ${err.message}`);
     }
@@ -93,11 +153,12 @@ function renderMatchmaking() {
       return;
     }
 
+    const userTraits = getSavedAvatar();
     try {
       const res = await fetch(`${REST_URL}/api/lobby/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lobbyId, traits: { emojiFace: '🐼', color: '#3b82f6' } })
+        body: JSON.stringify({ lobbyId, traits: userTraits })
       });
       if (!res.ok) {
         showError(await res.text());
@@ -109,7 +170,7 @@ function renderMatchmaking() {
       const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state`);
       const stateData = await stateRes.json();
 
-      initializeSync(lobbyId, data.playerId, data.secretHash, false, stateData.state);
+      initializeSync(lobbyId, data.playerId, data.secretHash, false, stateData.state, userTraits);
     } catch (err: any) {
       showError(`Failed to join lobby: ${err.message}`);
     }
@@ -170,16 +231,46 @@ function showError(msg: string) {
   }
 }
 
-async function initializeSync(lobbyId: string, playerId: string, secretHash: string, isHost: boolean, savedState?: EngineState) {
+function appendChatMessage(chat: any) {
+  const feed = document.getElementById('chat-messages');
+  if (feed) {
+    const item = document.createElement('div');
+    item.style.marginBottom = '6px';
+    item.innerHTML = `
+      <span style="background-color: ${chat.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; margin-right: 6px;">${chat.senderEmoji}</span>
+      <strong style="color: white; margin-right: 4px;">Player ${chat.senderId === 'P1' ? '1' : chat.senderId}:</strong>
+      <span style="color: #e2e8f0;">${chat.text}</span>
+    `;
+    feed.appendChild(item);
+    feed.scrollTop = feed.scrollHeight;
+  }
+}
+
+async function initializeSync(
+  lobbyId: string,
+  playerId: string,
+  secretHash: string,
+  isHost: boolean,
+  savedState?: EngineState,
+  traits?: any
+) {
   activeSeatId = playerId;
   isReplayMode = false;
+
+  const playerTraits = traits || getSavedAvatar();
 
   // Setup initial default engine state if not restored
   const initialState: EngineState = savedState || {
     seed: 'tabletop-seed-' + Math.random().toString(36).substring(7),
     prngState: 0,
     players: {
-      'P1': { id: 'P1', color: '#ef4444', skinTone: 'light', emojiFace: '🦊', isHost: true }
+      'P1': {
+        id: 'P1',
+        color: isHost ? playerTraits.color : '#ef4444',
+        skinTone: isHost ? playerTraits.skinTone : 'light',
+        emojiFace: isHost ? playerTraits.emojiFace : '🦊',
+        isHost: true
+      }
     },
     turn: {
       currentPlayerId: 'P1',
@@ -196,10 +287,10 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
   if (!initialState.players[playerId]) {
     initialState.players[playerId] = {
       id: playerId,
-      color: playerId === 'P1' ? '#ef4444' : '#3b82f6',
-      skinTone: 'medium',
-      emojiFace: playerId === 'P1' ? '🦊' : '🐼',
-      isHost: playerId === 'P1'
+      color: playerTraits.color,
+      skinTone: playerTraits.skinTone,
+      emojiFace: playerTraits.emojiFace,
+      isHost: isHost
     };
     initialState.moduleState.playerPositions[playerId] = 0;
   }
@@ -212,6 +303,9 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
           <h1>Lobby Code: <span style="color: #a855f7;">${lobbyId}</span></h1>
           <p style="color: var(--text-muted); margin: 0;">Connected seat: <strong style="color: white;">${playerId}</strong> (${isHost ? 'AUTHORITATIVE HOST' : 'PEER'})</p>
         </div>
+
+        <!-- Discord Invite Banner Overlay -->
+        <div id="discord-active-banner" style="display: none;"></div>
 
         <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace;">
           <strong>RECONNECT KEY:</strong> Copy the below payload to restore session:<br>
@@ -237,6 +331,27 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
           <h3>Lobby Active Seats</h3>
           <div id="player-list"></div>
         </div>
+
+        <!-- P2P Lobby Chat -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
+          <h3 style="margin-top: 0;">Lobby P2P Chat</h3>
+          <div id="chat-messages" style="height: 130px; overflow-y: auto; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 8px; font-family: sans-serif;"></div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px; font-size: 13px;">
+            <button class="action-btn" id="btn-send-chat" style="padding: 8px 14px; font-size: 13px; margin-right: 0;">Send</button>
+          </div>
+        </div>
+
+        <!-- Discord Pin Box (Host Only) -->
+        ${isHost ? `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
+          <h3 style="margin-top: 0;">Discord Voice Pin (Host Only)</h3>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="discord-input" placeholder="https://discord.gg/..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px; font-size: 12px;">
+            <button class="action-btn" id="btn-pin-discord" style="padding: 8px 14px; font-size: 12px; margin-right: 0; background: #5865f2;">Pin Link</button>
+          </div>
+        </div>
+        ` : ''}
 
         <div>
           <h3>Gameplay Actions</h3>
@@ -280,7 +395,31 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
     // Bind physical dice throw listeners
     bindPhysicsDice();
 
-    // Bind event listeners
+    // Bind Chat send listeners
+    const sendChat = () => {
+      const input = document.getElementById('chat-input') as HTMLInputElement;
+      const text = input.value.trim();
+      if (text) {
+        syncEngine?.sendChat(text);
+        input.value = '';
+      }
+    };
+    document.getElementById('btn-send-chat')?.addEventListener('click', sendChat);
+    document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') sendChat();
+    });
+
+    // Bind Discord Pin listener
+    if (isHost) {
+      document.getElementById('btn-pin-discord')?.addEventListener('click', () => {
+        const link = (document.getElementById('discord-input') as HTMLInputElement).value.trim();
+        if (link) {
+          syncEngine?.dispatch('PIN_DISCORD', { link });
+        }
+      });
+    }
+
+    // Bind other actions
     document.getElementById('btn-move')?.addEventListener('click', () => {
       const steps = syncEngine?.state.moduleState.lastDiceValue || 4;
       syncEngine?.dispatch('MOVE_PIECE', { spaces: steps });
@@ -318,7 +457,7 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
     });
   }
 
-  // Create and start SyncEngine
+  // Create and start SyncEngine with chat callback
   syncEngine = new SyncEngine(
     initialState,
     lobbyId,
@@ -347,6 +486,9 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
         errBox.style.display = 'block';
         setTimeout(() => { errBox.style.display = 'none'; }, 4000);
       }
+    },
+    (chat) => {
+      appendChatMessage(chat);
     }
   );
 
@@ -416,7 +558,6 @@ function initializeReplay(payload: ReplayPayload) {
       </div>
     `;
 
-    // Bind camera zoom listeners in replay mode too
     bindCameraViewport();
 
     // Instantiate Replay Engine
@@ -478,11 +619,9 @@ function bindCameraViewport() {
   const content = document.getElementById('camera-content');
   if (!viewport || !content) return;
 
-  // Reset zoom state variables
   currentScale = 1.0;
   content.style.transform = `scale(${currentScale})`;
 
-  // Mouse wheel zoom
   viewport.addEventListener('wheel', (e) => {
     e.preventDefault();
     const delta = e.deltaY * -0.002;
@@ -490,7 +629,6 @@ function bindCameraViewport() {
     content.style.transform = `scale(${currentScale})`;
   }, { passive: false });
 
-  // Touch pinch-to-zoom listeners
   viewport.addEventListener('touchstart', (e) => {
     if (e.touches.length === 2) {
       initialPinchDist = Math.hypot(
@@ -507,10 +645,9 @@ function bindCameraViewport() {
         e.touches[0].clientY - e.touches[1].clientY
       );
       const factor = dist / initialPinchDist;
-      // Adjust scale gently based on touch stretch ratio
       currentScale = Math.max(0.6, Math.min(2.0, currentScale * (1 + (factor - 1) * 0.1)));
       content.style.transform = `scale(${currentScale})`;
-      initialPinchDist = dist; // slide anchor
+      initialPinchDist = dist;
     }
   });
 
@@ -529,7 +666,6 @@ function bindPhysicsDice() {
   let isDragging = false;
 
   const onStart = (clientX: number, clientY: number) => {
-    // Check if it is our turn and we are in roll phase
     const isRollPhase = syncEngine && (syncEngine.state.turn.phase === 'Roll' || syncEngine.state.turn.phase === 'StartTurn');
     const isMyTurn = syncEngine && syncEngine.state.turn.currentPlayerId === activeSeatId;
     if (isReplayMode || !isRollPhase || !isMyTurn) return;
@@ -550,19 +686,16 @@ function bindPhysicsDice() {
     const dt = Math.max(1, t1 - t0);
     const dx = clientX - x0;
     const dy = clientY - y0;
-    const speed = Math.sqrt(dx * dx + dy * dy) / dt; // pixels per ms
+    const speed = Math.sqrt(dx * dx + dy * dy) / dt;
 
-    // Spinning roll animation
     dice.classList.add('dice-spinning');
     setTimeout(() => {
       dice.classList.remove('dice-spinning');
     }, 600);
 
     if (speed > 0.1) {
-      // Replicated physics throw roll
       syncEngine?.dispatch('ROLL_DICE', { speed });
     } else {
-      // Default baseline roll speed if it was a quick click/tap
       syncEngine?.dispatch('ROLL_DICE', { speed: 0.2 });
     }
   };
@@ -575,7 +708,6 @@ function bindPhysicsDice() {
     if (isDragging) onEnd(e.clientX, e.clientY);
   });
 
-  // Touch flick support
   dice.addEventListener('touchstart', (e) => {
     if (e.touches[0]) onStart(e.touches[0].clientX, e.touches[0].clientY);
   });
@@ -650,10 +782,7 @@ function updateUI(gameState: EngineState) {
     }
 
     if (dice) {
-      // Display value rolled or fallback icon
       dice.innerText = gameState.moduleState.lastDiceValue ? String(gameState.moduleState.lastDiceValue) : '🎲';
-      
-      // Visual feedback: opacity if not active player's turn to roll
       if (isMyTurn && isRollPhase) {
         dice.style.opacity = '1.0';
         dice.style.pointerEvents = 'auto';
@@ -663,7 +792,6 @@ function updateUI(gameState: EngineState) {
       }
     }
   } else {
-    // Hide buttons or show values in replay mode
     const dice = document.getElementById('physical-dice');
     if (dice) {
       dice.innerText = gameState.moduleState.lastDiceValue ? String(gameState.moduleState.lastDiceValue) : '🎲';
@@ -683,6 +811,7 @@ function updateUI(gameState: EngineState) {
       if (e.type === 'TURN_ENDED') text = `🏁 Player ${e.playerId} ended their turn`;
       if (e.type === 'PLAYER_JOINED') text = `👤 Player ${e.playerId} joined the lobby`;
       if (e.type === 'PLAYER_WON') text = `🏆 Player ${e.playerId} reached the finish and won!`;
+      if (e.type === 'DISCORD_PINNED') text = `🔊 Voice Link pinned: ${e.payload.link}`;
       return `<div class="event-item">${text}</div>`;
     }).join('');
     feed.scrollTop = feed.scrollHeight;
@@ -714,6 +843,22 @@ function updateUI(gameState: EngineState) {
       victoryEl.style.display = 'none';
     }
   }
+
+  // 7. Update Discord voice pinned banner
+  const banner = document.getElementById('discord-active-banner');
+  if (banner) {
+    if (gameState.discordInviteLink) {
+      banner.innerHTML = `
+        <div style="background: rgba(88, 101, 242, 0.12); border: 1px solid rgba(88, 101, 242, 0.3); padding: 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #a5b4fc; font-weight: bold; margin-bottom: 12px; width: 100%;">
+          <span>🔊 Pinned Voice Channel Connected!</span>
+          <a href="${gameState.discordInviteLink}" target="_blank" class="action-btn" style="background: #5865f2; color: white; text-decoration: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; margin-right: 0;">Join Voice Chat</a>
+        </div>
+      `;
+      banner.style.display = 'block';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
 }
 
 // Global Custom cursor overlay binding
@@ -724,31 +869,26 @@ if (!handCursor) {
   handCursor.className = 'tactile-hand';
   handCursor.innerHTML = `
     <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-      <!-- Standard open pointer cursor SVG -->
       <path d="M12,2c-0.6,0-1,0.4-1,1v8c0,0.6,0.4,1,1,1s1-0.4,1-1V3C13,2.4,12.6,2,12,2z M7,8c-0.6,0-1,0.4-1,1v3c0,0.6,0.4,1,1,1s1-0.4,1-1V9C8,8.4,7.6,8,7,8z M17,9c-0.6,0-1,0.4-1,1v2.5c0,0.6,0.4,1,1,1s1-0.4,1-1V10C18,9.4,17.6,9,17,9z M12,14c-2.8,0-5,2.2-5,5v2c0,0.6,0.4,1,1,1h8c0.6,0,1-0.4,1-1v-2C17,16.2,14.8,14,12,14z"/>
     </svg>
   `;
   document.body.appendChild(handCursor);
 }
 
-// SVG states paths
 const SVG_IDLE = `
   <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <!-- Open Hand -->
     <path d="M12,2c-0.6,0-1,0.4-1,1v8c0,0.6,0.4,1,1,1s1-0.4,1-1V3C13,2.4,12.6,2,12,2z M7,8c-0.6,0-1,0.4-1,1v3c0,0.6,0.4,1,1,1s1-0.4,1-1V9C8,8.4,7.6,8,7,8z M17,9c-0.6,0-1,0.4-1,1v2.5c0,0.6,0.4,1,1,1s1-0.4,1-1V10C18,9.4,17.6,9,17,9z M12,14c-2.8,0-5,2.2-5,5v2c0,0.6,0.4,1,1,1h8c0.6,0,1-0.4,1-1v-2C17,16.2,14.8,14,12,14z"/>
   </svg>
 `;
 
 const SVG_POINTING = `
   <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <!-- Pointing Finger -->
     <path d="M12,2c-0.6,0-1,0.4-1,1v7.5c-0.6,0-1,0.4-1,1s0.4,1,1,1h1V11c0.6,0,1-0.4,1-1V3C13,2.4,12.6,2,12,2z M7,11c-0.6,0-1,0.4-1,1v2c0,0.6,0.4,1,1,1s1-0.4,1-1v-2C8,11.4,7.6,11,7,11z M17,11c-0.6,0-1,0.4-1,1v2.5c0,0.6,0.4,1,1,1s1-0.4,1-1V12C18,11.4,17.6,11,17,11z M12,16c-2.8,0-5,2.2-5,5v1c0,0.6,0.4,1,1,1h8c0.6,0,1-0.4,1-1v-1C17,18.2,14.8,16,12,16z"/>
   </svg>
 `;
 
 const SVG_GRAB = `
   <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <!-- Grab Fist -->
     <path d="M12,8c-0.6,0-1,0.4-1,1v1.5c-0.6,0-1,0.4-1,1s0.4,1,1,1h1V11c0.6,0,1-0.4,1-1V9C13,8.4,12.6,8,12,8z M7,10c-0.6,0-1,0.4-1,1v1.5c0,0.6,0.4,1,1,1s1-0.4,1-1V11C8,10.4,7.6,10,7,10z M17,10c-0.6,0-1,0.4-1,1v2c0,0.6,0.4,1,1,1s1-0.4,1-1V11C18,10.4,17.6,10,17,10z M12,14c-2.8,0-5,2.2-5,5v2h10v-2C17,16.2,14.8,14,12,14z"/>
   </svg>
 `;

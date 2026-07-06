@@ -7,8 +7,8 @@ export function validateCommand(
   command: EngineCommand,
   prng: PRNG
 ): EngineEvent[] {
-  // 1. Turn enforcement
-  if (state.turn.currentPlayerId !== command.playerId) {
+  // 1. Turn enforcement (exempt PIN_DISCORD)
+  if (command.type !== 'PIN_DISCORD' && state.turn.currentPlayerId !== command.playerId) {
     throw new Error('Not your turn.');
   }
 
@@ -110,6 +110,20 @@ export function validateCommand(
       events.push({
         type: 'TURN_ENDED',
         playerId: command.playerId,
+        timestamp: Date.now()
+      });
+      break;
+    }
+
+    case 'PIN_DISCORD': {
+      const sender = state.players[command.playerId];
+      if (!sender || !sender.isHost) {
+        throw new Error('Only the authoritative host can pin a Discord link.');
+      }
+      events.push({
+        type: 'DISCORD_PINNED',
+        playerId: command.playerId,
+        payload: { link: command.payload.link },
         timestamp: Date.now()
       });
       break;

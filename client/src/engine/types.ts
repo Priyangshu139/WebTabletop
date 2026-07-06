@@ -19,16 +19,17 @@ export interface EngineState {
     lastDiceValue: number;
     playerPositions: Record<string, number>;
   };
+  discordInviteLink?: string;
 }
 
 export interface EngineCommand {
-  type: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE';
+  type: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE' | 'PIN_DISCORD';
   playerId: string;
   payload?: any;
 }
 
 export interface EngineEvent {
-  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED' | 'PLAYER_WON';
+  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED' | 'PLAYER_WON' | 'DISCORD_PINNED';
   playerId?: string;
   payload?: any;
   timestamp: number;
