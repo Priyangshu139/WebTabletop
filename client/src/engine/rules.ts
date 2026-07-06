@@ -19,7 +19,12 @@ export function validateCommand(
       if (state.turn.phase !== 'Roll' && state.turn.phase !== 'StartTurn') {
         throw new Error('You cannot roll at this phase.');
       }
-      // Roll dice (1-6) using seedable PRNG
+      // Roll dice (1-6) using seedable PRNG influenced by flick speed payload
+      const flickSpeed = command.payload?.speed || 0;
+      const offset = Math.floor(flickSpeed * 100) % 7;
+      for (let i = 0; i < offset; i++) {
+        prng.next();
+      }
       const diceValue = Math.floor(prng.next() * 6) + 1;
       events.push({
         type: 'DICE_ROLLED',

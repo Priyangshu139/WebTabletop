@@ -9,6 +9,10 @@ let replayEngine: ReplayEngine | null = null;
 let activeSeatId = 'P1';
 let isReplayMode = false;
 
+// Zoom scale state
+let currentScale = 1.0;
+let initialPinchDist = 0;
+
 const REST_URL = 'http://localhost:3000';
 const WS_URL = 'ws://localhost:3000';
 
@@ -218,10 +222,15 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
           ⚠️ Authoritative Host Disconnected. Migrating hosting authority to next peer...
         </div>
 
-        <!-- 3D Board Surface Grid -->
+        <!-- 3D Viewport Zoom Surface -->
         <div>
           <h3>Ludo Go Board Surface</h3>
-          <div id="board-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 340px; margin: 10px auto;"></div>
+          <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 6px 0;">Use mouse wheel or pinch gestures to zoom viewport.</p>
+          <div id="camera-viewport" style="overflow: hidden; width: 100%; max-width: 360px; height: 360px; margin: 10px auto; border: 1px solid var(--panel-border); border-radius: 12px; position: relative; background: rgba(0,0,0,0.25);">
+            <div id="camera-content" style="transform-origin: center center; transition: transform 0.1s ease-out; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; transform: scale(1.0);">
+              <div id="board-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 320px; height: 320px;"></div>
+            </div>
+          </div>
         </div>
 
         <div>
@@ -231,11 +240,19 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
 
         <div>
           <h3>Gameplay Actions</h3>
+          
+          <!-- Flick physics throwing pad -->
+          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center;">
+            <p style="font-size: 12px; color: var(--text-muted); margin-top: 0;">Drag and FLICK the dice to roll!</p>
+            <div class="dice-3d-surface">
+              <div id="physical-dice" class="dice-3d">🎲</div>
+            </div>
+          </div>
+
           <div id="actions-panel">
-            <button class="action-btn" id="btn-roll" disabled>Roll Dice</button>
-            <button class="action-btn" id="btn-move" disabled>Move Piece</button>
-            <button class="action-btn" id="btn-resolve" disabled>Resolve Tile Space</button>
-            <button class="action-btn" id="btn-end" disabled>End Turn</button>
+            <button class="action-btn" id="btn-move" disabled style="width: 100%; margin-bottom: 8px;">Move Piece</button>
+            <button class="action-btn" id="btn-resolve" disabled style="width: 100%; margin-bottom: 8px;">Resolve Tile Space</button>
+            <button class="action-btn" id="btn-end" disabled style="width: 100%;">End Turn</button>
           </div>
           <div class="error-toast" id="error-box"></div>
           <button class="action-btn" id="btn-download-replay" style="margin-top: 14px; background: #0ea5e9; width: 100%;">💾 Download Match Replay File</button>
@@ -257,11 +274,13 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
       <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.9); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000;"></div>
     `;
 
-    // Bind event listeners
-    document.getElementById('btn-roll')?.addEventListener('click', () => {
-      syncEngine?.dispatch('ROLL_DICE');
-    });
+    // Bind viewport camera zoom listeners
+    bindCameraViewport();
 
+    // Bind physical dice throw listeners
+    bindPhysicsDice();
+
+    // Bind event listeners
     document.getElementById('btn-move')?.addEventListener('click', () => {
       const steps = syncEngine?.state.moduleState.lastDiceValue || 4;
       syncEngine?.dispatch('MOVE_PIECE', { spaces: steps });
@@ -309,7 +328,6 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
     WS_URL,
     REST_URL,
     (updatedState) => {
-      // Handle host role takeover in UI
       if (syncEngine && syncEngine.isHost !== isHost) {
         isHost = syncEngine.isHost;
         const banner = document.getElementById('migration-banner');
@@ -352,10 +370,14 @@ function initializeReplay(payload: ReplayPayload) {
           <p style="color: var(--text-muted); margin: 0;">Replaying event-sourced match log.</p>
         </div>
 
-        <!-- 3D Board Surface Grid -->
+        <!-- 3D Viewport Zoom Surface -->
         <div>
           <h3>Ludo Go Board Surface</h3>
-          <div id="board-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 340px; margin: 10px auto;"></div>
+          <div id="camera-viewport" style="overflow: hidden; width: 100%; max-width: 360px; height: 360px; margin: 10px auto; border: 1px solid var(--panel-border); border-radius: 12px; position: relative; background: rgba(0,0,0,0.25);">
+            <div id="camera-content" style="transform-origin: center center; transition: transform 0.1s ease-out; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; transform: scale(1.0);">
+              <div id="board-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 320px; height: 320px;"></div>
+            </div>
+          </div>
         </div>
 
         <div>
@@ -394,17 +416,19 @@ function initializeReplay(payload: ReplayPayload) {
       </div>
     `;
 
+    // Bind camera zoom listeners in replay mode too
+    bindCameraViewport();
+
     // Instantiate Replay Engine
     replayEngine = new ReplayEngine(payload, (rehydratedState) => {
       updateUI(rehydratedState);
-      
+
       const stepLbl = document.getElementById('lbl-curr-step');
       const slider = document.getElementById('replay-timeline') as HTMLInputElement;
       if (stepLbl) stepLbl.innerText = String(replayEngine?.currentIndex);
       if (slider) slider.value = String(replayEngine?.currentIndex);
     });
 
-    // Bind Replay UI elements
     const playBtn = document.getElementById('btn-replay-play') as HTMLButtonElement;
     const timeline = document.getElementById('replay-timeline') as HTMLInputElement;
 
@@ -447,6 +471,120 @@ function initializeReplay(payload: ReplayPayload) {
     // First render
     updateUI(replayEngine.state);
   }
+}
+
+function bindCameraViewport() {
+  const viewport = document.getElementById('camera-viewport');
+  const content = document.getElementById('camera-content');
+  if (!viewport || !content) return;
+
+  // Reset zoom state variables
+  currentScale = 1.0;
+  content.style.transform = `scale(${currentScale})`;
+
+  // Mouse wheel zoom
+  viewport.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const delta = e.deltaY * -0.002;
+    currentScale = Math.max(0.6, Math.min(2.0, currentScale + delta));
+    content.style.transform = `scale(${currentScale})`;
+  }, { passive: false });
+
+  // Touch pinch-to-zoom listeners
+  viewport.addEventListener('touchstart', (e) => {
+    if (e.touches.length === 2) {
+      initialPinchDist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+    }
+  });
+
+  viewport.addEventListener('touchmove', (e) => {
+    if (e.touches.length === 2 && initialPinchDist > 0) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const factor = dist / initialPinchDist;
+      // Adjust scale gently based on touch stretch ratio
+      currentScale = Math.max(0.6, Math.min(2.0, currentScale * (1 + (factor - 1) * 0.1)));
+      content.style.transform = `scale(${currentScale})`;
+      initialPinchDist = dist; // slide anchor
+    }
+  });
+
+  viewport.addEventListener('touchend', () => {
+    initialPinchDist = 0;
+  });
+}
+
+function bindPhysicsDice() {
+  const dice = document.getElementById('physical-dice');
+  if (!dice) return;
+
+  let x0 = 0;
+  let y0 = 0;
+  let t0 = 0;
+  let isDragging = false;
+
+  const onStart = (clientX: number, clientY: number) => {
+    // Check if it is our turn and we are in roll phase
+    const isRollPhase = syncEngine && (syncEngine.state.turn.phase === 'Roll' || syncEngine.state.turn.phase === 'StartTurn');
+    const isMyTurn = syncEngine && syncEngine.state.turn.currentPlayerId === activeSeatId;
+    if (isReplayMode || !isRollPhase || !isMyTurn) return;
+
+    isDragging = true;
+    x0 = clientX;
+    y0 = clientY;
+    t0 = Date.now();
+    dice.classList.add('grabbing');
+  };
+
+  const onEnd = (clientX: number, clientY: number) => {
+    if (!isDragging) return;
+    isDragging = false;
+    dice.classList.remove('grabbing');
+
+    const t1 = Date.now();
+    const dt = Math.max(1, t1 - t0);
+    const dx = clientX - x0;
+    const dy = clientY - y0;
+    const speed = Math.sqrt(dx * dx + dy * dy) / dt; // pixels per ms
+
+    // Spinning roll animation
+    dice.classList.add('dice-spinning');
+    setTimeout(() => {
+      dice.classList.remove('dice-spinning');
+    }, 600);
+
+    if (speed > 0.1) {
+      // Replicated physics throw roll
+      syncEngine?.dispatch('ROLL_DICE', { speed });
+    } else {
+      // Default baseline roll speed if it was a quick click/tap
+      syncEngine?.dispatch('ROLL_DICE', { speed: 0.2 });
+    }
+  };
+
+  dice.addEventListener('mousedown', (e) => {
+    onStart(e.clientX, e.clientY);
+  });
+
+  document.addEventListener('mouseup', (e) => {
+    if (isDragging) onEnd(e.clientX, e.clientY);
+  });
+
+  // Touch flick support
+  dice.addEventListener('touchstart', (e) => {
+    if (e.touches[0]) onStart(e.touches[0].clientX, e.touches[0].clientY);
+  });
+
+  document.addEventListener('touchend', (e) => {
+    if (isDragging && e.changedTouches[0]) {
+      onEnd(e.changedTouches[0].clientX, e.changedTouches[0].clientY);
+    }
+  });
 }
 
 function updateUI(gameState: EngineState) {
@@ -497,18 +635,40 @@ function updateUI(gameState: EngineState) {
 
   // 3. Playback/Action button states
   if (!isReplayMode) {
-    const rollBtn = document.getElementById('btn-roll') as HTMLButtonElement;
     const moveBtn = document.getElementById('btn-move') as HTMLButtonElement;
     const resolveBtn = document.getElementById('btn-resolve') as HTMLButtonElement;
     const endBtn = document.getElementById('btn-end') as HTMLButtonElement;
+    const dice = document.getElementById('physical-dice');
 
     const isMyTurn = gameState.turn.currentPlayerId === activeSeatId;
+    const isRollPhase = gameState.turn.phase === 'Roll' || gameState.turn.phase === 'StartTurn';
 
-    if (rollBtn && moveBtn && resolveBtn && endBtn) {
-      rollBtn.disabled = !isMyTurn || (gameState.turn.phase !== 'Roll' && gameState.turn.phase !== 'StartTurn');
+    if (moveBtn && resolveBtn && endBtn) {
       moveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'Move';
       resolveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'ResolveTile';
       endBtn.disabled = !isMyTurn || gameState.turn.phase !== 'EndTurn';
+    }
+
+    if (dice) {
+      // Display value rolled or fallback icon
+      dice.innerText = gameState.moduleState.lastDiceValue ? String(gameState.moduleState.lastDiceValue) : '🎲';
+      
+      // Visual feedback: opacity if not active player's turn to roll
+      if (isMyTurn && isRollPhase) {
+        dice.style.opacity = '1.0';
+        dice.style.pointerEvents = 'auto';
+      } else {
+        dice.style.opacity = '0.65';
+        dice.style.pointerEvents = 'none';
+      }
+    }
+  } else {
+    // Hide buttons or show values in replay mode
+    const dice = document.getElementById('physical-dice');
+    if (dice) {
+      dice.innerText = gameState.moduleState.lastDiceValue ? String(gameState.moduleState.lastDiceValue) : '🎲';
+      dice.style.opacity = '0.7';
+      dice.style.pointerEvents = 'none';
     }
   }
 
@@ -541,7 +701,7 @@ function updateUI(gameState: EngineState) {
     if (winEvent) {
       const winner = gameState.players[winEvent.playerId!];
       victoryEl.innerHTML = `
-        <div style="font-size: 48px; margin-bottom: 16px; animation: bounce 1s infinite;">🎉🏆🥇</div>
+        <div style="font-size: 48px; margin-bottom: 16px;">🎉🏆🥇</div>
         <h1 style="background: linear-gradient(to right, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Player ${winEvent.playerId} (${winner?.emojiFace}) Wins!</h1>
         <p style="color: var(--text-muted); font-size: 16px;">Successfully reached the Home tile ${ludoModule.rules.winningTile}!</p>
         <button class="action-btn" id="btn-victory-close" style="margin-top: 24px; background: #8b5cf6;">Close Overlay</button>
@@ -555,6 +715,106 @@ function updateUI(gameState: EngineState) {
     }
   }
 }
+
+// Global Custom cursor overlay binding
+let handCursor = document.getElementById('hand-cursor');
+if (!handCursor) {
+  handCursor = document.createElement('div');
+  handCursor.id = 'hand-cursor';
+  handCursor.className = 'tactile-hand';
+  handCursor.innerHTML = `
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <!-- Standard open pointer cursor SVG -->
+      <path d="M12,2c-0.6,0-1,0.4-1,1v8c0,0.6,0.4,1,1,1s1-0.4,1-1V3C13,2.4,12.6,2,12,2z M7,8c-0.6,0-1,0.4-1,1v3c0,0.6,0.4,1,1,1s1-0.4,1-1V9C8,8.4,7.6,8,7,8z M17,9c-0.6,0-1,0.4-1,1v2.5c0,0.6,0.4,1,1,1s1-0.4,1-1V10C18,9.4,17.6,9,17,9z M12,14c-2.8,0-5,2.2-5,5v2c0,0.6,0.4,1,1,1h8c0.6,0,1-0.4,1-1v-2C17,16.2,14.8,14,12,14z"/>
+    </svg>
+  `;
+  document.body.appendChild(handCursor);
+}
+
+// SVG states paths
+const SVG_IDLE = `
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <!-- Open Hand -->
+    <path d="M12,2c-0.6,0-1,0.4-1,1v8c0,0.6,0.4,1,1,1s1-0.4,1-1V3C13,2.4,12.6,2,12,2z M7,8c-0.6,0-1,0.4-1,1v3c0,0.6,0.4,1,1,1s1-0.4,1-1V9C8,8.4,7.6,8,7,8z M17,9c-0.6,0-1,0.4-1,1v2.5c0,0.6,0.4,1,1,1s1-0.4,1-1V10C18,9.4,17.6,9,17,9z M12,14c-2.8,0-5,2.2-5,5v2c0,0.6,0.4,1,1,1h8c0.6,0,1-0.4,1-1v-2C17,16.2,14.8,14,12,14z"/>
+  </svg>
+`;
+
+const SVG_POINTING = `
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <!-- Pointing Finger -->
+    <path d="M12,2c-0.6,0-1,0.4-1,1v7.5c-0.6,0-1,0.4-1,1s0.4,1,1,1h1V11c0.6,0,1-0.4,1-1V3C13,2.4,12.6,2,12,2z M7,11c-0.6,0-1,0.4-1,1v2c0,0.6,0.4,1,1,1s1-0.4,1-1v-2C8,11.4,7.6,11,7,11z M17,11c-0.6,0-1,0.4-1,1v2.5c0,0.6,0.4,1,1,1s1-0.4,1-1V12C18,11.4,17.6,11,17,11z M12,16c-2.8,0-5,2.2-5,5v1c0,0.6,0.4,1,1,1h8c0.6,0,1-0.4,1-1v-1C17,18.2,14.8,16,12,16z"/>
+  </svg>
+`;
+
+const SVG_GRAB = `
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <!-- Grab Fist -->
+    <path d="M12,8c-0.6,0-1,0.4-1,1v1.5c-0.6,0-1,0.4-1,1s0.4,1,1,1h1V11c0.6,0,1-0.4,1-1V9C13,8.4,12.6,8,12,8z M7,10c-0.6,0-1,0.4-1,1v1.5c0,0.6,0.4,1,1,1s1-0.4,1-1V11C8,10.4,7.6,10,7,10z M17,10c-0.6,0-1,0.4-1,1v2c0,0.6,0.4,1,1,1s1-0.4,1-1V11C18,10.4,17.6,10,17,10z M12,14c-2.8,0-5,2.2-5,5v2h10v-2C17,16.2,14.8,14,12,14z"/>
+  </svg>
+`;
+
+// Track pointer movement
+document.addEventListener('mousemove', (e) => {
+  if (handCursor) {
+    handCursor.style.left = `${e.clientX}px`;
+    handCursor.style.top = `${e.clientY}px`;
+  }
+});
+
+document.addEventListener('touchmove', (e) => {
+  if (e.touches[0] && handCursor) {
+    handCursor.style.left = `${e.touches[0].clientX}px`;
+    handCursor.style.top = `${e.touches[0].clientY}px`;
+  }
+});
+
+// Change hand shapes based on interactions
+let isGrabActive = false;
+
+document.addEventListener('mousedown', () => {
+  isGrabActive = true;
+  if (handCursor) {
+    handCursor.classList.add('grab');
+    handCursor.innerHTML = SVG_GRAB;
+  }
+});
+
+document.addEventListener('mouseup', () => {
+  isGrabActive = false;
+  if (handCursor) {
+    handCursor.classList.remove('grab');
+    handCursor.innerHTML = SVG_IDLE;
+  }
+});
+
+document.addEventListener('touchstart', () => {
+  isGrabActive = true;
+  if (handCursor) {
+    handCursor.classList.add('grab');
+    handCursor.innerHTML = SVG_GRAB;
+  }
+});
+
+document.addEventListener('touchend', () => {
+  isGrabActive = false;
+  if (handCursor) {
+    handCursor.classList.remove('grab');
+    handCursor.innerHTML = SVG_IDLE;
+  }
+});
+
+// Detect hover over interactive elements to set pointing state
+document.addEventListener('mouseover', (e) => {
+  if (isGrabActive) return;
+  const target = e.target as HTMLElement;
+  if (handCursor) {
+    if (target.closest('button, input, select, a, .dice-3d')) {
+      handCursor.innerHTML = SVG_POINTING;
+    } else {
+      handCursor.innerHTML = SVG_IDLE;
+    }
+  }
+});
 
 // Initial matchmaking render
 renderMatchmaking();
