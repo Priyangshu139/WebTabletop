@@ -4,6 +4,8 @@ export interface Player {
   skinTone: string;
   emojiFace: string;
   isHost: boolean;
+  money?: number;
+  hand?: any[];
 }
 
 export interface EngineState {
@@ -15,21 +17,25 @@ export interface EngineState {
     phase: 'StartTurn' | 'Roll' | 'Move' | 'ResolveTile' | 'OptionalActions' | 'EndTurn';
   };
   eventLog: EngineEvent[];
+  activeModule?: 'ludo-go-classic' | 'monopoly-go' | 'uno-go';
   moduleState: {
     lastDiceValue: number;
     playerPositions: Record<string, number>;
+    propertiesOwned?: Record<string, string>; // tileIndex -> ownerId
+    unoDeck?: any[];
+    unoDiscardPile?: any[];
   };
   discordInviteLink?: string;
 }
 
 export interface EngineCommand {
-  type: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE' | 'PIN_DISCORD';
+  type: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE' | 'PIN_DISCORD' | 'BUY_PROPERTY' | 'PLAY_CARD' | 'DRAW_CARD';
   playerId: string;
   payload?: any;
 }
 
 export interface EngineEvent {
-  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED' | 'PLAYER_WON' | 'DISCORD_PINNED';
+  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED' | 'PLAYER_WON' | 'DISCORD_PINNED' | 'PROPERTY_BOUGHT' | 'RENT_PAID' | 'CARD_PLAYED' | 'CARD_DRAWN' | 'UNO_REVERSED' | 'UNO_SKIPPED' | 'SALARY_COLLECTED' | 'CHANCE_BONUS' | 'TAX_PAID';
   playerId?: string;
   payload?: any;
   timestamp: number;

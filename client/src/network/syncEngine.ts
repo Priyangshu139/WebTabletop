@@ -117,14 +117,29 @@ export class SyncEngine {
     this.webrtcManager.onPeerConnected = (peerId) => {
       if (this.isHost) {
         // Generate a PLAYER_JOINED event authoritative state transition
+        const payload: any = {
+          color: peerId === 'P1' ? '#ef4444' : '#3b82f6',
+          emojiFace: peerId === 'P1' ? '🦊' : '🐼',
+          skinTone: 'medium'
+        };
+
+        // Draw starting hand if Uno
+        if (this.state.activeModule === 'uno-go') {
+          const startHand: any[] = [];
+          const deck = this.state.moduleState.unoDeck || [];
+          for (let i = 0; i < 7; i++) {
+            if (deck.length > 0) {
+              const card = deck.shift();
+              startHand.push(card);
+            }
+          }
+          payload.startHand = startHand;
+        }
+
         const joinEvent: EngineEvent = {
           type: 'PLAYER_JOINED',
           playerId: peerId,
-          payload: {
-            color: peerId === 'P1' ? '#ef4444' : '#3b82f6',
-            emojiFace: peerId === 'P1' ? '🦊' : '🐼',
-            skinTone: 'medium'
-          },
+          payload,
           timestamp: Date.now()
         };
 
@@ -161,7 +176,7 @@ export class SyncEngine {
     };
   }
 
-  public dispatch(cmdType: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE' | 'PIN_DISCORD', payload?: any) {
+  public dispatch(cmdType: EngineCommand['type'], payload?: any) {
     const command: EngineCommand = {
       type: cmdType,
       playerId: this.playerId,

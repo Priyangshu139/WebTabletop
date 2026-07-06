@@ -1,32 +1,27 @@
 import { EngineState } from '../engine/types';
 import { SyncEngine } from '../network/syncEngine';
 import { ReplayEngine, ReplayPayload } from '../engine/replay';
-import ludoModule from './modules/ludo_go.json';
+import { ThreeRenderer } from './threeRenderer';
+import monopolyModule from './modules/monopoly_go.json';
 
 // Local controllers
 let syncEngine: SyncEngine | null = null;
 let replayEngine: ReplayEngine | null = null;
+let threeRenderer: ThreeRenderer | null = null;
 let activeSeatId = 'P1';
 let isReplayMode = false;
-
-// Zoom scale state
-let currentScale = 1.0;
-let initialPinchDist = 0;
 
 const REST_URL = 'http://localhost:3000';
 const WS_URL = 'ws://localhost:3000';
 
 const app = document.getElementById('app');
 
-// Local storage helper for avatar configuration
 function getSavedAvatar() {
   const saved = localStorage.getItem('webtabletop_avatar');
   if (saved) {
     try {
       return JSON.parse(saved);
-    } catch (e) {
-      // fallback
-    }
+    } catch (e) {}
   }
   return { emojiFace: '🦊', color: '#ef4444', skinTone: 'light' };
 }
@@ -41,9 +36,14 @@ function saveAvatarTraits() {
 function renderMatchmaking() {
   if (!app) return;
   isReplayMode = false;
+  
   if (replayEngine) {
     replayEngine.destroy();
     replayEngine = null;
+  }
+  if (threeRenderer) {
+    threeRenderer.destroy();
+    threeRenderer = null;
   }
 
   const traits = getSavedAvatar();
@@ -88,6 +88,17 @@ function renderMatchmaking() {
           </div>
         </div>
 
+        <!-- Downloadable game module selection (Monopoly Lite / Ludo Go / Uno Lite) -->
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
+          <h3 style="margin-top: 0;">Select Game Module</h3>
+          <label style="font-size: 12px; color: var(--text-muted);">Configure active tabletop module rules:</label>
+          <select id="lobby-game-module" style="background: #1e293b; color: white; padding: 10px; border-radius: 8px; border: 1px solid var(--panel-border); font-size: 14px; font-weight: bold; width: 100%;">
+            <option value="ludo-go-classic">Ludo Go Classic (Modifiers Board)</option>
+            <option value="monopoly-go">Monopoly Go Lite (Properties Board)</option>
+            <option value="uno-go">Uno Go Lite (Color Match Card Game)</option>
+          </select>
+        </div>
+
         <div style="border-bottom: 1px solid var(--panel-border); padding-bottom: 16px;">
           <h3>Create a New Lobby</h3>
           <button class="action-btn" id="btn-create-lobby">Host a Game</button>
@@ -123,15 +134,15 @@ function renderMatchmaking() {
     </div>
   `;
 
-  // Bind customizer change listeners
   document.getElementById('avatar-emoji')?.addEventListener('change', saveAvatarTraits);
   document.getElementById('avatar-color')?.addEventListener('change', saveAvatarTraits);
   document.getElementById('avatar-skin')?.addEventListener('change', saveAvatarTraits);
 
-  // Bind actions
   document.getElementById('btn-create-lobby')?.addEventListener('click', async () => {
     showError('');
     const userTraits = getSavedAvatar();
+    const gameModule = (document.getElementById('lobby-game-module') as HTMLSelectElement).value as any;
+
     try {
       const res = await fetch(`${REST_URL}/api/lobby/create`, {
         method: 'POST',
@@ -139,7 +150,7 @@ function renderMatchmaking() {
         body: JSON.stringify({ traits: userTraits })
       });
       const data = await res.json();
-      initializeSync(data.lobbyId, data.playerId, data.secretHash, true, undefined, userTraits);
+      initializeSync(data.lobbyId, data.playerId, data.secretHash, true, undefined, userTraits, gameModule);
     } catch (err: any) {
       showError(`Failed to create lobby: ${err.message}`);
     }
@@ -219,18 +230,6 @@ function renderMatchmaking() {
   });
 }
 
-function showError(msg: string) {
-  const box = document.getElementById('matchmaking-error');
-  if (box) {
-    if (msg) {
-      box.innerText = msg;
-      box.style.display = 'block';
-    } else {
-      box.style.display = 'none';
-    }
-  }
-}
-
 function appendChatMessage(chat: any) {
   const feed = document.getElementById('chat-messages');
   if (feed) {
@@ -246,30 +245,65 @@ function appendChatMessage(chat: any) {
   }
 }
 
+function showError(msg: string) {
+  const box = document.getElementById('matchmaking-error');
+  if (box) {
+    if (msg) {
+      box.innerText = msg;
+      box.style.display = 'block';
+    } else {
+      box.style.display = 'none';
+    }
+  }
+}
+
 async function initializeSync(
   lobbyId: string,
   playerId: string,
   secretHash: string,
   isHost: boolean,
   savedState?: EngineState,
-  traits?: any
+  traits?: any,
+  gameModule?: 'ludo-go-classic' | 'monopoly-go' | 'uno-go'
 ) {
   activeSeatId = playerId;
   isReplayMode = false;
 
   const playerTraits = traits || getSavedAvatar();
+  const activeGame = gameModule || savedState?.activeModule || 'ludo-go-classic';
+
+  // Uno card deck generator
+  let unoDeck: any[] = [];
+  let unoDiscardPile: any[] = [];
+  if (activeGame === 'uno-go' && !savedState) {
+    const colors = ['red', 'blue', 'green', 'yellow'];
+    const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'SKIP', 'REVERSE', 'DRAW_TWO'];
+    let idCounter = 0;
+    colors.forEach(col => {
+      values.forEach(val => {
+        unoDeck.push({ id: `c-${idCounter++}`, color: col, value: val });
+      });
+    });
+    // Shuffle deck
+    unoDeck.sort(() => Math.random() - 0.5);
+    // Draw top card to discard
+    unoDiscardPile.push(unoDeck.shift());
+  }
 
   // Setup initial default engine state if not restored
   const initialState: EngineState = savedState || {
     seed: 'tabletop-seed-' + Math.random().toString(36).substring(7),
     prngState: 0,
+    activeModule: activeGame,
     players: {
       'P1': {
         id: 'P1',
         color: isHost ? playerTraits.color : '#ef4444',
         skinTone: isHost ? playerTraits.skinTone : 'light',
         emojiFace: isHost ? playerTraits.emojiFace : '🦊',
-        isHost: true
+        isHost: true,
+        money: activeGame === 'monopoly-go' ? 1500 : undefined,
+        hand: activeGame === 'uno-go' ? [] : undefined
       }
     },
     turn: {
@@ -279,9 +313,19 @@ async function initializeSync(
     eventLog: [],
     moduleState: {
       lastDiceValue: 0,
-      playerPositions: { 'P1': 0 }
+      playerPositions: { 'P1': 0 },
+      propertiesOwned: activeGame === 'monopoly-go' ? {} : undefined,
+      unoDeck,
+      unoDiscardPile
     }
   };
+
+  // Assign start cards if we are Player 1 hosting Uno
+  if (activeGame === 'uno-go' && !savedState && initialState.players['P1'].hand?.length === 0) {
+    for (let i = 0; i < 7; i++) {
+      initialState.players['P1'].hand!.push(initialState.moduleState.unoDeck!.shift());
+    }
+  }
 
   // Add ourselves to players table dynamically if not present
   if (!initialState.players[playerId]) {
@@ -290,12 +334,14 @@ async function initializeSync(
       color: playerTraits.color,
       skinTone: playerTraits.skinTone,
       emojiFace: playerTraits.emojiFace,
-      isHost: isHost
+      isHost: isHost,
+      money: activeGame === 'monopoly-go' ? 1500 : undefined,
+      hand: activeGame === 'uno-go' ? [] : undefined
     };
     initialState.moduleState.playerPositions[playerId] = 0;
   }
 
-  // Setup main layout for game session
+  // Setup main layout for game session (incorporates 3D canvas viewport)
   if (app) {
     app.innerHTML = `
       <div class="sandbox-panel">
@@ -304,7 +350,6 @@ async function initializeSync(
           <p style="color: var(--text-muted); margin: 0;">Connected seat: <strong style="color: white;">${playerId}</strong> (${isHost ? 'AUTHORITATIVE HOST' : 'PEER'})</p>
         </div>
 
-        <!-- Discord Invite Banner Overlay -->
         <div id="discord-active-banner" style="display: none;"></div>
 
         <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace;">
@@ -318,12 +363,11 @@ async function initializeSync(
 
         <!-- 3D Viewport Zoom Surface -->
         <div>
-          <h3>Ludo Go Board Surface</h3>
-          <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 6px 0;">Use mouse wheel or pinch gestures to zoom viewport.</p>
-          <div id="camera-viewport" style="overflow: hidden; width: 100%; max-width: 360px; height: 360px; margin: 10px auto; border: 1px solid var(--panel-border); border-radius: 12px; position: relative; background: rgba(0,0,0,0.25);">
-            <div id="camera-content" style="transform-origin: center center; transition: transform 0.1s ease-out; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; transform: scale(1.0);">
-              <div id="board-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 320px; height: 320px;"></div>
-            </div>
+          <h3 style="text-transform: capitalize;">3D Tabletop Viewport: ${activeGame.replace('-', ' ')}</h3>
+          <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 6px 0;">Drag screen to rotate table. Scroll to zoom camera angle.</p>
+          
+          <div id="camera-viewport" style="width: 100%; max-width: 360px; height: 360px; margin: 10px auto; border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; background: #0f172a; position: relative;">
+            <div id="three-canvas-container" style="width: 100%; height: 100%;"></div>
           </div>
         </div>
 
@@ -335,7 +379,7 @@ async function initializeSync(
         <!-- P2P Lobby Chat -->
         <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
           <h3 style="margin-top: 0;">Lobby P2P Chat</h3>
-          <div id="chat-messages" style="height: 130px; overflow-y: auto; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 8px; font-family: sans-serif;"></div>
+          <div id="chat-messages" style="height: 130px; overflow-y: auto; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 8px;"></div>
           <div style="display: flex; gap: 8px;">
             <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px; font-size: 13px;">
             <button class="action-btn" id="btn-send-chat" style="padding: 8px 14px; font-size: 13px; margin-right: 0;">Send</button>
@@ -353,20 +397,41 @@ async function initializeSync(
         </div>
         ` : ''}
 
+        <!-- Monopoly property owned ledger -->
+        ${activeGame === 'monopoly-go' ? `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
+          <h3 style="margin-top:0;">Purchased Properties</h3>
+          <div id="monopoly-ledger" style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">No properties owned yet.</div>
+        </div>
+        ` : ''}
+
         <div>
           <h3>Gameplay Actions</h3>
           
-          <!-- Flick physics throwing pad -->
-          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center;">
+          <!-- Flick physics throwing pad (Only for Ludo & Monopoly) -->
+          <div id="physics-dice-surface" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center; ${activeGame === 'uno-go' ? 'display: none;' : ''}">
             <p style="font-size: 12px; color: var(--text-muted); margin-top: 0;">Drag and FLICK the dice to roll!</p>
             <div class="dice-3d-surface">
               <div id="physical-dice" class="dice-3d">🎲</div>
             </div>
           </div>
 
+          <!-- Card Hand GUI panel (Only for Uno) -->
+          <div id="uno-hand-gui" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; margin-bottom: 12px; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0; font-weight: bold;">Your Hand (Play matching card color/value):</p>
+            <div id="my-cards-container" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;"></div>
+          </div>
+
           <div id="actions-panel">
-            <button class="action-btn" id="btn-move" disabled style="width: 100%; margin-bottom: 8px;">Move Piece</button>
-            <button class="action-btn" id="btn-resolve" disabled style="width: 100%; margin-bottom: 8px;">Resolve Tile Space</button>
+            <button class="action-btn" id="btn-move" disabled style="width: 100%; margin-bottom: 8px; ${activeGame === 'uno-go' ? 'display: none;' : ''}">Move Piece</button>
+            <button class="action-btn" id="btn-resolve" disabled style="width: 100%; margin-bottom: 8px; ${activeGame === 'uno-go' ? 'display: none;' : ''}">Resolve Tile Space</button>
+            
+            <!-- Monopoly Specific HUD Buttons -->
+            <button class="action-btn" id="btn-buy-property" disabled style="width: 100%; margin-bottom: 8px; background-color: #10b981; ${activeGame !== 'monopoly-go' ? 'display: none;' : ''}">Buy Property</button>
+            
+            <!-- Uno Specific HUD Buttons -->
+            <button class="action-btn" id="btn-draw-card" disabled style="width: 100%; margin-bottom: 8px; background-color: #f59e0b; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">Draw Card from Deck</button>
+
             <button class="action-btn" id="btn-end" disabled style="width: 100%;">End Turn</button>
           </div>
           <div class="error-toast" id="error-box"></div>
@@ -389,11 +454,16 @@ async function initializeSync(
       <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.9); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000;"></div>
     `;
 
-    // Bind viewport camera zoom listeners
-    bindCameraViewport();
+    // Instantiate Three.js renderer inside the canvas container
+    const container = document.getElementById('three-canvas-container') as HTMLDivElement;
+    if (container) {
+      threeRenderer = new ThreeRenderer(container, playerId);
+    }
 
     // Bind physical dice throw listeners
-    bindPhysicsDice();
+    if (activeGame !== 'uno-go') {
+      bindPhysicsDice();
+    }
 
     // Bind Chat send listeners
     const sendChat = () => {
@@ -419,7 +489,21 @@ async function initializeSync(
       });
     }
 
-    // Bind other actions
+    // Bind Monopoly Buy Property
+    if (activeGame === 'monopoly-go') {
+      document.getElementById('btn-buy-property')?.addEventListener('click', () => {
+        syncEngine?.dispatch('BUY_PROPERTY');
+      });
+    }
+
+    // Bind Uno Draw Card
+    if (activeGame === 'uno-go') {
+      document.getElementById('btn-draw-card')?.addEventListener('click', () => {
+        syncEngine?.dispatch('DRAW_CARD');
+      });
+    }
+
+    // Bind normal actions
     document.getElementById('btn-move')?.addEventListener('click', () => {
       const steps = syncEngine?.state.moduleState.lastDiceValue || 4;
       syncEngine?.dispatch('MOVE_PIECE', { spaces: steps });
@@ -436,7 +520,7 @@ async function initializeSync(
     document.getElementById('btn-download-replay')?.addEventListener('click', () => {
       if (!syncEngine) return;
       const replayData = {
-        moduleId: ludoModule.moduleId,
+        moduleId: activeGame,
         seed: syncEngine.state.seed,
         players: syncEngine.state.players,
         eventLog: syncEngine.state.eventLog
@@ -453,6 +537,10 @@ async function initializeSync(
     document.getElementById('btn-exit-game')?.addEventListener('click', () => {
       syncEngine?.close();
       syncEngine = null;
+      if (threeRenderer) {
+        threeRenderer.destroy();
+        threeRenderer = null;
+      }
       renderMatchmaking();
     });
   }
@@ -514,11 +602,9 @@ function initializeReplay(payload: ReplayPayload) {
 
         <!-- 3D Viewport Zoom Surface -->
         <div>
-          <h3>Ludo Go Board Surface</h3>
-          <div id="camera-viewport" style="overflow: hidden; width: 100%; max-width: 360px; height: 360px; margin: 10px auto; border: 1px solid var(--panel-border); border-radius: 12px; position: relative; background: rgba(0,0,0,0.25);">
-            <div id="camera-content" style="transform-origin: center center; transition: transform 0.1s ease-out; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; transform: scale(1.0);">
-              <div id="board-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 320px; height: 320px;"></div>
-            </div>
+          <h3>3D Tabletop Viewport: ${payload.moduleId.replace('-', ' ')}</h3>
+          <div id="camera-viewport" style="width: 100%; max-width: 360px; height: 360px; margin: 10px auto; border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; background: #0f172a; position: relative;">
+            <div id="three-canvas-container" style="width: 100%; height: 100%;"></div>
           </div>
         </div>
 
@@ -558,7 +644,11 @@ function initializeReplay(payload: ReplayPayload) {
       </div>
     `;
 
-    bindCameraViewport();
+    // Instantiate Three.js renderer inside the canvas container for replay
+    const container = document.getElementById('three-canvas-container') as HTMLDivElement;
+    if (container) {
+      threeRenderer = new ThreeRenderer(container, 'P1');
+    }
 
     // Instantiate Replay Engine
     replayEngine = new ReplayEngine(payload, (rehydratedState) => {
@@ -606,54 +696,16 @@ function initializeReplay(payload: ReplayPayload) {
     });
 
     document.getElementById('btn-exit-replay')?.addEventListener('click', () => {
+      if (threeRenderer) {
+        threeRenderer.destroy();
+        threeRenderer = null;
+      }
       renderMatchmaking();
     });
 
     // First render
     updateUI(replayEngine.state);
   }
-}
-
-function bindCameraViewport() {
-  const viewport = document.getElementById('camera-viewport');
-  const content = document.getElementById('camera-content');
-  if (!viewport || !content) return;
-
-  currentScale = 1.0;
-  content.style.transform = `scale(${currentScale})`;
-
-  viewport.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const delta = e.deltaY * -0.002;
-    currentScale = Math.max(0.6, Math.min(2.0, currentScale + delta));
-    content.style.transform = `scale(${currentScale})`;
-  }, { passive: false });
-
-  viewport.addEventListener('touchstart', (e) => {
-    if (e.touches.length === 2) {
-      initialPinchDist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-    }
-  });
-
-  viewport.addEventListener('touchmove', (e) => {
-    if (e.touches.length === 2 && initialPinchDist > 0) {
-      const dist = Math.hypot(
-        e.touches[0].clientX - e.touches[1].clientX,
-        e.touches[0].clientY - e.touches[1].clientY
-      );
-      const factor = dist / initialPinchDist;
-      currentScale = Math.max(0.6, Math.min(2.0, currentScale * (1 + (factor - 1) * 0.1)));
-      content.style.transform = `scale(${currentScale})`;
-      initialPinchDist = dist;
-    }
-  });
-
-  viewport.addEventListener('touchend', () => {
-    initialPinchDist = 0;
-  });
 }
 
 function bindPhysicsDice() {
@@ -719,44 +771,46 @@ function bindPhysicsDice() {
   });
 }
 
+function getUnoColorHex(color: string): string {
+  switch (String(color).toLowerCase()) {
+    case 'red': return '#ef4444';
+    case 'blue': return '#3b82f6';
+    case 'green': return '#10b981';
+    case 'yellow': return '#eab308';
+    default: return '#6b7280';
+  }
+}
+
 function updateUI(gameState: EngineState) {
-  // 1. Draw Board Grid
-  const boardEl = document.getElementById('board-container');
-  if (boardEl) {
-    boardEl.innerHTML = ludoModule.board.tiles.map(tile => {
-      const occupyingPlayers = Object.entries(gameState.moduleState.playerPositions)
-        .filter(([_, pos]) => pos === tile.index)
-        .map(([pid, _]) => gameState.players[pid])
-        .filter(Boolean);
+  const activeGame = gameState.activeModule || 'ludo-go-classic';
 
-      const avatarHtml = occupyingPlayers.map(p => {
-        return `<span style="background-color: ${p.color}; border-radius: 50%; padding: 2px; border: 1px solid white; display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; font-size: 11px;">${p.emojiFace}</span>`;
-      }).join('');
-
-      return `
-        <div style="background-color: ${tile.color}; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 6px; aspect-ratio: 1; position: relative;">
-          <div style="font-size: 10px; color: var(--text-muted); font-weight: bold; align-self: flex-start;">${tile.index}</div>
-          <div style="font-size: 20px; line-height: 1;">${tile.emoji}</div>
-          <div style="display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; min-height: 24px; width: 100%;">
-            ${avatarHtml}
-          </div>
-        </div>
-      `;
-    }).join('');
+  // 1. Notify 3D WebGL renderer to update meshes dynamically
+  if (threeRenderer) {
+    threeRenderer.updateState(gameState);
   }
 
-  // 2. Draw active seat lists
+  // 2. Draw active seat lists with Monopoly Cash and Uno cards counter indicators
   const playerList = document.getElementById('player-list');
   if (playerList) {
     playerList.innerHTML = Object.values(gameState.players).map(p => {
       const isActive = gameState.turn.currentPlayerId === p.id;
       const isOurSeat = !isReplayMode && activeSeatId === p.id;
+      
+      let scoreLabel = '';
+      if (activeGame === 'monopoly-go') {
+        scoreLabel = `<span style="font-weight: bold; color: #10b981; margin-left: 10px;">Cash: $${p.money !== undefined ? p.money : 1500}</span>`;
+      } else if (activeGame === 'uno-go') {
+        scoreLabel = `<span style="font-weight: bold; color: #f59e0b; margin-left: 10px;">Cards: ${p.hand ? p.hand.length : 0}</span>`;
+      } else {
+        scoreLabel = `<span style="font-size: 12px; color: var(--text-muted); margin-left: 10px;">Position: Tile ${gameState.moduleState.playerPositions[p.id] || 0}</span>`;
+      }
+
       return `
         <div class="player-slot ${isActive ? 'active' : ''}">
           <div class="pawn-avatar" style="background-color: ${p.color};">${p.emojiFace}</div>
           <div style="flex-grow: 1;">
             <strong>Player ${p.id === 'P1' ? '1' : p.id}</strong>
-            <span style="font-size: 12px; color: var(--text-muted); margin-left: 10px;">Position: Tile ${gameState.moduleState.playerPositions[p.id] || 0}</span>
+            ${scoreLabel}
             ${isOurSeat ? '<span style="font-size: 11px; background: rgba(99, 102, 241, 0.2); border-radius: 4px; padding: 2px 6px; margin-left: 10px;">YOU</span>' : ''}
           </div>
           <div>${isActive ? `<span style="color: #6366f1; font-weight: 700;">Active Turn (${gameState.turn.phase})</span>` : 'Waiting'}</div>
@@ -765,25 +819,93 @@ function updateUI(gameState: EngineState) {
     }).join('');
   }
 
-  // 3. Playback/Action button states
+  // 3. Draw Monopoly Owned properties list
+  if (activeGame === 'monopoly-go') {
+    const ledger = document.getElementById('monopoly-ledger');
+    if (ledger) {
+      const owned = gameState.moduleState.propertiesOwned || {};
+      const ownedEntries = Object.entries(owned);
+      if (ownedEntries.length === 0) {
+        ledger.innerHTML = 'No properties owned yet.';
+      } else {
+        ledger.innerHTML = ownedEntries.map(([tileIdx, ownerId]) => {
+          const tile = monopolyModule.board.tiles[parseInt(tileIdx)];
+          const owner = gameState.players[ownerId];
+          return `
+            <div style="display:flex; justify-content:space-between; padding: 4px; border-bottom: 1px solid rgba(255,255,255,0.01);">
+              <span>${tile.emoji} <strong>${tile.name}</strong></span>
+              <span style="color: ${owner?.color || '#fff'}; font-weight:bold;">Player ${ownerId}</span>
+            </div>
+          `;
+        }).join('');
+      }
+    }
+  }
+
+  // 4. Draw Uno Card Hand GUI list (Only visible to player during Uno)
+  if (activeGame === 'uno-go') {
+    const handContainer = document.getElementById('my-cards-container');
+    if (handContainer) {
+      const myHand = gameState.players[activeSeatId]?.hand || [];
+      const isMyTurn = !isReplayMode && gameState.turn.currentPlayerId === activeSeatId;
+      
+      if (myHand.length === 0) {
+        handContainer.innerHTML = '<span style="color: var(--text-muted); font-size:12px;">No cards in hand.</span>';
+      } else {
+        handContainer.innerHTML = myHand.map(card => {
+          return `
+            <button class="action-btn card-btn" data-card-id="${card.id}" style="background: ${getUnoColorHex(card.color)}; min-width: 68px; height: 94px; border-radius: 8px; border: 2px solid white; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.35); text-transform: uppercase; margin-right: 4px;" ${!isMyTurn ? 'disabled' : ''}>
+              ${card.value}
+            </button>
+          `;
+        }).join('');
+
+        // Attach play card listeners
+        if (isMyTurn) {
+          const btns = handContainer.querySelectorAll('.card-btn');
+          btns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+              const cid = (e.currentTarget as HTMLButtonElement).dataset.cardId;
+              const selectedCard = myHand.find(c => c.id === cid);
+              if (selectedCard) {
+                syncEngine?.dispatch('PLAY_CARD', { card: selectedCard });
+              }
+            });
+          });
+        }
+      }
+    }
+  }
+
+  // 5. Button states (HUD controls)
   if (!isReplayMode) {
     const moveBtn = document.getElementById('btn-move') as HTMLButtonElement;
     const resolveBtn = document.getElementById('btn-resolve') as HTMLButtonElement;
+    const buyPropertyBtn = document.getElementById('btn-buy-property') as HTMLButtonElement;
+    const drawCardBtn = document.getElementById('btn-draw-card') as HTMLButtonElement;
     const endBtn = document.getElementById('btn-end') as HTMLButtonElement;
     const dice = document.getElementById('physical-dice');
 
     const isMyTurn = gameState.turn.currentPlayerId === activeSeatId;
     const isRollPhase = gameState.turn.phase === 'Roll' || gameState.turn.phase === 'StartTurn';
 
-    if (moveBtn && resolveBtn && endBtn) {
+    if (moveBtn && resolveBtn && buyPropertyBtn && drawCardBtn && endBtn) {
       moveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'Move';
       resolveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'ResolveTile';
-      endBtn.disabled = !isMyTurn || gameState.turn.phase !== 'EndTurn';
+      buyPropertyBtn.disabled = !isMyTurn || gameState.turn.phase !== 'OptionalActions';
+      drawCardBtn.disabled = !isMyTurn || gameState.turn.phase !== 'StartTurn';
+      
+      // End turn options
+      if (activeGame === 'monopoly-go') {
+        endBtn.disabled = !isMyTurn || (gameState.turn.phase !== 'EndTurn' && gameState.turn.phase !== 'OptionalActions');
+      } else {
+        endBtn.disabled = !isMyTurn || gameState.turn.phase !== 'EndTurn';
+      }
     }
 
     if (dice) {
       dice.innerText = gameState.moduleState.lastDiceValue ? String(gameState.moduleState.lastDiceValue) : '🎲';
-      if (isMyTurn && isRollPhase) {
+      if (isMyTurn && isRollPhase && activeGame !== 'uno-go') {
         dice.style.opacity = '1.0';
         dice.style.pointerEvents = 'auto';
       } else {
@@ -791,16 +913,9 @@ function updateUI(gameState: EngineState) {
         dice.style.pointerEvents = 'none';
       }
     }
-  } else {
-    const dice = document.getElementById('physical-dice');
-    if (dice) {
-      dice.innerText = gameState.moduleState.lastDiceValue ? String(gameState.moduleState.lastDiceValue) : '🎲';
-      dice.style.opacity = '0.7';
-      dice.style.pointerEvents = 'none';
-    }
   }
 
-  // 4. Render Event Feed
+  // 6. Render Event Feed
   const feed = document.getElementById('event-feed');
   if (feed) {
     feed.innerHTML = gameState.eventLog.map(e => {
@@ -810,20 +925,29 @@ function updateUI(gameState: EngineState) {
       if (e.type === 'PHASE_CHANGED') text = `⚙️ Phase changed to: ${e.payload.phase}`;
       if (e.type === 'TURN_ENDED') text = `🏁 Player ${e.playerId} ended their turn`;
       if (e.type === 'PLAYER_JOINED') text = `👤 Player ${e.playerId} joined the lobby`;
-      if (e.type === 'PLAYER_WON') text = `🏆 Player ${e.playerId} reached the finish and won!`;
+      if (e.type === 'PLAYER_WON') text = `🏆 Player ${e.playerId} reached the target and won!`;
       if (e.type === 'DISCORD_PINNED') text = `🔊 Voice Link pinned: ${e.payload.link}`;
+      if (e.type === 'PROPERTY_BOUGHT') text = `🏠 Player ${e.playerId} bought Property ${e.payload.tileIndex} for $${e.payload.cost}`;
+      if (e.type === 'RENT_PAID') text = `💸 Player ${e.playerId} paid $${e.payload.rent} rent to Player ${e.payload.ownerId}`;
+      if (e.type === 'CARD_PLAYED') text = `🎴 Player ${e.playerId} played a ${e.payload.card.color} ${e.payload.card.value}`;
+      if (e.type === 'CARD_DRAWN') text = `📥 Player ${e.playerId} drew a card from deck`;
+      if (e.type === 'UNO_SKIPPED') text = `🚫 Player ${e.playerId} was skipped!`;
+      if (e.type === 'UNO_REVERSED') text = `🔄 Player ${e.playerId} reversed turn direction!`;
+      if (e.type === 'SALARY_COLLECTED') text = `💰 Player ${e.playerId} crossed GO and collected $200!`;
+      if (e.type === 'CHANCE_BONUS') text = `🎁 Player ${e.playerId} hit Chance and won a $${e.payload.bonus} bonus!`;
+      if (e.type === 'TAX_PAID') text = `📉 Player ${e.playerId} paid $${e.payload.amount} in taxes`;
       return `<div class="event-item">${text}</div>`;
     }).join('');
     feed.scrollTop = feed.scrollHeight;
   }
 
-  // 5. Render inspector JSON
+  // 7. Render inspector JSON
   const inspector = document.getElementById('state-inspector');
   if (inspector) {
     inspector.innerText = JSON.stringify(gameState, null, 2);
   }
 
-  // 6. Victory Celeb Check
+  // 8. Victory Celeb Check
   const winEvent = gameState.eventLog.find(e => e.type === 'PLAYER_WON');
   const victoryEl = document.getElementById('victory-overlay');
   if (victoryEl) {
@@ -832,7 +956,7 @@ function updateUI(gameState: EngineState) {
       victoryEl.innerHTML = `
         <div style="font-size: 48px; margin-bottom: 16px;">🎉🏆🥇</div>
         <h1 style="background: linear-gradient(to right, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Player ${winEvent.playerId} (${winner?.emojiFace}) Wins!</h1>
-        <p style="color: var(--text-muted); font-size: 16px;">Successfully reached the Home tile ${ludoModule.rules.winningTile}!</p>
+        <p style="color: var(--text-muted); font-size: 16px;">Deterministic simulation complete.</p>
         <button class="action-btn" id="btn-victory-close" style="margin-top: 24px; background: #8b5cf6;">Close Overlay</button>
       `;
       victoryEl.style.display = 'flex';
@@ -844,7 +968,7 @@ function updateUI(gameState: EngineState) {
     }
   }
 
-  // 7. Update Discord voice pinned banner
+  // 9. Update Pinned Discord Invite Banner
   const banner = document.getElementById('discord-active-banner');
   if (banner) {
     if (gameState.discordInviteLink) {
