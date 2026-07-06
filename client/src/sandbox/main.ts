@@ -1,9 +1,13 @@
 import { EngineState } from '../engine/types';
 import { SyncEngine } from '../network/syncEngine';
+import { ReplayEngine, ReplayPayload } from '../engine/replay';
+import ludoModule from './modules/ludo_go.json';
 
-// Local State Storage variables
+// Local controllers
 let syncEngine: SyncEngine | null = null;
+let replayEngine: ReplayEngine | null = null;
 let activeSeatId = 'P1';
+let isReplayMode = false;
 
 const REST_URL = 'http://localhost:3000';
 const WS_URL = 'ws://localhost:3000';
@@ -12,11 +16,17 @@ const app = document.getElementById('app');
 
 function renderMatchmaking() {
   if (!app) return;
+  isReplayMode = false;
+  if (replayEngine) {
+    replayEngine.destroy();
+    replayEngine = null;
+  }
+
   app.innerHTML = `
     <div class="sandbox-panel" style="grid-column: span 2; max-width: 600px; margin: 0 auto; width: 100%;">
       <div class="title-header">
         <h1>WebTabletop Multiplayer Lobby</h1>
-        <p style="color: var(--text-muted); margin: 0;">Lobby matchmaking and WebRTC peer connection setup.</p>
+        <p style="color: var(--text-muted); margin: 0;">Lobby matchmaking, WebRTC P2P setup, and Replay Sandbox.</p>
       </div>
 
       <div style="display: flex; flex-direction: column; gap: 16px; margin-top: 10px;">
@@ -33,7 +43,7 @@ function renderMatchmaking() {
           </div>
         </div>
 
-        <div>
+        <div style="border-bottom: 1px solid var(--panel-border); padding-bottom: 16px;">
           <h3>Reconnect to Session</h3>
           <p style="font-size: 12px; color: var(--text-muted);">Paste session details below to reconnect P2P link.</p>
           <div style="display: flex; flex-direction: column; gap: 8px;">
@@ -42,6 +52,12 @@ function renderMatchmaking() {
             <input type="text" id="recon-hash" placeholder="Secret Hash" style="background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px;">
             <button class="action-btn" id="btn-reconnect-lobby" style="width: 150px; margin-top: 8px;">Reconnect</button>
           </div>
+        </div>
+
+        <div>
+          <h3>Load Event-Sourced Replay</h3>
+          <p style="font-size: 12px; color: var(--text-muted);">Upload a match save file (.json) to step through event history.</p>
+          <input type="file" id="input-upload-replay" accept=".json" style="background: #1e293b; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; width: 100%;">
         </div>
 
         <div class="error-toast" id="matchmaking-error"></div>
@@ -107,7 +123,6 @@ function renderMatchmaking() {
     }
 
     try {
-      // Retrieve state backup
       const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state`);
       if (!stateRes.ok) {
         showError('Session lobby not found.');
@@ -120,6 +135,22 @@ function renderMatchmaking() {
     } catch (err: any) {
       showError(`Reconnection error: ${err.message}`);
     }
+  });
+
+  document.getElementById('input-upload-replay')?.addEventListener('change', (e) => {
+    const file = (e.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const payload: ReplayPayload = JSON.parse(evt.target?.result as string);
+        initializeReplay(payload);
+      } catch (err: any) {
+        showError(`Invalid replay file structure: ${err.message}`);
+      }
+    };
+    reader.readAsText(file);
   });
 }
 
@@ -137,6 +168,7 @@ function showError(msg: string) {
 
 async function initializeSync(lobbyId: string, playerId: string, secretHash: string, isHost: boolean, savedState?: EngineState) {
   activeSeatId = playerId;
+  isReplayMode = false;
 
   // Setup initial default engine state if not restored
   const initialState: EngineState = savedState || {
@@ -186,6 +218,12 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
           ⚠️ Authoritative Host Disconnected. Migrating hosting authority to next peer...
         </div>
 
+        <!-- 3D Board Surface Grid -->
+        <div>
+          <h3>Ludo Go Board Surface</h3>
+          <div id="board-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 340px; margin: 10px auto;"></div>
+        </div>
+
         <div>
           <h3>Lobby Active Seats</h3>
           <div id="player-list"></div>
@@ -195,10 +233,13 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
           <h3>Gameplay Actions</h3>
           <div id="actions-panel">
             <button class="action-btn" id="btn-roll" disabled>Roll Dice</button>
-            <button class="action-btn" id="btn-move" disabled>Move (Simulate Steps)</button>
+            <button class="action-btn" id="btn-move" disabled>Move Piece</button>
+            <button class="action-btn" id="btn-resolve" disabled>Resolve Tile Space</button>
             <button class="action-btn" id="btn-end" disabled>End Turn</button>
           </div>
           <div class="error-toast" id="error-box"></div>
+          <button class="action-btn" id="btn-download-replay" style="margin-top: 14px; background: #0ea5e9; width: 100%;">💾 Download Match Replay File</button>
+          <button class="action-btn" id="btn-exit-game" style="margin-top: 8px; background: #64748b; width: 100%;">🛑 Exit Match to Lobby</button>
         </div>
 
         <div>
@@ -211,6 +252,9 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
         <h3>Live Replicated State Inspector</h3>
         <div class="state-inspector" id="state-inspector"></div>
       </div>
+
+      <!-- Victory Celeb Overlay -->
+      <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.9); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000;"></div>
     `;
 
     // Bind event listeners
@@ -223,8 +267,35 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
       syncEngine?.dispatch('MOVE_PIECE', { spaces: steps });
     });
 
+    document.getElementById('btn-resolve')?.addEventListener('click', () => {
+      syncEngine?.dispatch('RESOLVE_TILE');
+    });
+
     document.getElementById('btn-end')?.addEventListener('click', () => {
       syncEngine?.dispatch('END_TURN');
+    });
+
+    document.getElementById('btn-download-replay')?.addEventListener('click', () => {
+      if (!syncEngine) return;
+      const replayData = {
+        moduleId: ludoModule.moduleId,
+        seed: syncEngine.state.seed,
+        players: syncEngine.state.players,
+        eventLog: syncEngine.state.eventLog
+      };
+      const blob = new Blob([JSON.stringify(replayData, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `replay-${lobbyId}-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+
+    document.getElementById('btn-exit-game')?.addEventListener('click', () => {
+      syncEngine?.close();
+      syncEngine = null;
+      renderMatchmaking();
     });
   }
 
@@ -238,13 +309,12 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
     WS_URL,
     REST_URL,
     (updatedState) => {
-      // Check if role changed (Host Migration happened)
+      // Handle host role takeover in UI
       if (syncEngine && syncEngine.isHost !== isHost) {
         isHost = syncEngine.isHost;
         const banner = document.getElementById('migration-banner');
         if (banner) banner.style.display = 'none';
 
-        // Re-update headers
         const header = document.querySelector('.title-header p');
         if (header) {
           header.innerHTML = `Connected seat: <strong style="color: white;">${playerId}</strong> (AUTHORITATIVE HOST - TAKEOVER)`;
@@ -271,13 +341,146 @@ async function initializeSync(lobbyId: string, playerId: string, secretHash: str
   }
 }
 
+function initializeReplay(payload: ReplayPayload) {
+  isReplayMode = true;
+
+  if (app) {
+    app.innerHTML = `
+      <div class="sandbox-panel">
+        <div class="title-header">
+          <h1>Replay: <span style="color: #0ea5e9;">${payload.name || payload.moduleId}</span></h1>
+          <p style="color: var(--text-muted); margin: 0;">Replaying event-sourced match log.</p>
+        </div>
+
+        <!-- 3D Board Surface Grid -->
+        <div>
+          <h3>Ludo Go Board Surface</h3>
+          <div id="board-container" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; width: 100%; max-width: 340px; margin: 10px auto;"></div>
+        </div>
+
+        <div>
+          <h3>Active Players</h3>
+          <div id="player-list"></div>
+        </div>
+
+        <div>
+          <h3>Scrubbing Timeline Controls</h3>
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 12px; font-family: monospace;" id="lbl-curr-step">-1</span>
+              <input type="range" id="replay-timeline" min="-1" max="${payload.eventLog.length - 1}" value="-1" style="flex-grow: 1;">
+              <span style="font-size: 12px; font-family: monospace;">${payload.eventLog.length - 1}</span>
+            </div>
+
+            <div style="display: flex; gap: 8px; justify-content: center;">
+              <button class="action-btn" id="btn-replay-restart" style="background: #475569;">⏮️ Restart</button>
+              <button class="action-btn" id="btn-replay-prev" style="background: #475569;">◀️ Prev</button>
+              <button class="action-btn" id="btn-replay-play" style="background: #10b981;">▶️ Play</button>
+              <button class="action-btn" id="btn-replay-next" style="background: #475569;">▶️ Next</button>
+            </div>
+            <button class="action-btn" id="btn-exit-replay" style="background: #e2e8f0; color: #1e293b; margin-top: 10px;">⏹️ Exit Replay Viewer</button>
+          </div>
+        </div>
+
+        <div>
+          <h3>Event History</h3>
+          <div class="event-feed" id="event-feed"></div>
+        </div>
+      </div>
+
+      <div class="sandbox-panel">
+        <h3>Rehydrated State Inspector</h3>
+        <div class="state-inspector" id="state-inspector"></div>
+      </div>
+    `;
+
+    // Instantiate Replay Engine
+    replayEngine = new ReplayEngine(payload, (rehydratedState) => {
+      updateUI(rehydratedState);
+      
+      const stepLbl = document.getElementById('lbl-curr-step');
+      const slider = document.getElementById('replay-timeline') as HTMLInputElement;
+      if (stepLbl) stepLbl.innerText = String(replayEngine?.currentIndex);
+      if (slider) slider.value = String(replayEngine?.currentIndex);
+    });
+
+    // Bind Replay UI elements
+    const playBtn = document.getElementById('btn-replay-play') as HTMLButtonElement;
+    const timeline = document.getElementById('replay-timeline') as HTMLInputElement;
+
+    document.getElementById('btn-replay-restart')?.addEventListener('click', () => {
+      replayEngine?.goToEvent(-1);
+    });
+
+    document.getElementById('btn-replay-prev')?.addEventListener('click', () => {
+      replayEngine?.stepBackward();
+    });
+
+    document.getElementById('btn-replay-next')?.addEventListener('click', () => {
+      replayEngine?.stepForward();
+    });
+
+    playBtn?.addEventListener('click', () => {
+      if (replayEngine?.isPlaying()) {
+        replayEngine.pause();
+        playBtn.innerText = '▶️ Play';
+        playBtn.style.backgroundColor = '#10b981';
+      } else {
+        playBtn.innerText = '⏸️ Pause';
+        playBtn.style.backgroundColor = '#f59e0b';
+        replayEngine?.play(1000, () => {
+          playBtn.innerText = '▶️ Play';
+          playBtn.style.backgroundColor = '#10b981';
+        });
+      }
+    });
+
+    timeline?.addEventListener('input', (e) => {
+      const idx = parseInt((e.target as HTMLInputElement).value);
+      replayEngine?.goToEvent(idx);
+    });
+
+    document.getElementById('btn-exit-replay')?.addEventListener('click', () => {
+      renderMatchmaking();
+    });
+
+    // First render
+    updateUI(replayEngine.state);
+  }
+}
+
 function updateUI(gameState: EngineState) {
-  // Update Players
+  // 1. Draw Board Grid
+  const boardEl = document.getElementById('board-container');
+  if (boardEl) {
+    boardEl.innerHTML = ludoModule.board.tiles.map(tile => {
+      const occupyingPlayers = Object.entries(gameState.moduleState.playerPositions)
+        .filter(([_, pos]) => pos === tile.index)
+        .map(([pid, _]) => gameState.players[pid])
+        .filter(Boolean);
+
+      const avatarHtml = occupyingPlayers.map(p => {
+        return `<span style="background-color: ${p.color}; border-radius: 50%; padding: 2px; border: 1px solid white; display: inline-flex; width: 22px; height: 22px; align-items: center; justify-content: center; font-size: 11px;">${p.emojiFace}</span>`;
+      }).join('');
+
+      return `
+        <div style="background-color: ${tile.color}; border-radius: 8px; border: 1px solid rgba(255,255,255,0.08); display: flex; flex-direction: column; align-items: center; justify-content: space-between; padding: 6px; aspect-ratio: 1; position: relative;">
+          <div style="font-size: 10px; color: var(--text-muted); font-weight: bold; align-self: flex-start;">${tile.index}</div>
+          <div style="font-size: 20px; line-height: 1;">${tile.emoji}</div>
+          <div style="display: flex; gap: 2px; flex-wrap: wrap; justify-content: center; min-height: 24px; width: 100%;">
+            ${avatarHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // 2. Draw active seat lists
   const playerList = document.getElementById('player-list');
   if (playerList) {
     playerList.innerHTML = Object.values(gameState.players).map(p => {
       const isActive = gameState.turn.currentPlayerId === p.id;
-      const isOurSeat = activeSeatId === p.id;
+      const isOurSeat = !isReplayMode && activeSeatId === p.id;
       return `
         <div class="player-slot ${isActive ? 'active' : ''}">
           <div class="pawn-avatar" style="background-color: ${p.color};">${p.emojiFace}</div>
@@ -292,20 +495,24 @@ function updateUI(gameState: EngineState) {
     }).join('');
   }
 
-  // Update Action Buttons
-  const rollBtn = document.getElementById('btn-roll') as HTMLButtonElement;
-  const moveBtn = document.getElementById('btn-move') as HTMLButtonElement;
-  const endBtn = document.getElementById('btn-end') as HTMLButtonElement;
+  // 3. Playback/Action button states
+  if (!isReplayMode) {
+    const rollBtn = document.getElementById('btn-roll') as HTMLButtonElement;
+    const moveBtn = document.getElementById('btn-move') as HTMLButtonElement;
+    const resolveBtn = document.getElementById('btn-resolve') as HTMLButtonElement;
+    const endBtn = document.getElementById('btn-end') as HTMLButtonElement;
 
-  const isMyTurn = gameState.turn.currentPlayerId === activeSeatId;
+    const isMyTurn = gameState.turn.currentPlayerId === activeSeatId;
 
-  if (rollBtn && moveBtn && endBtn) {
-    rollBtn.disabled = !isMyTurn || (gameState.turn.phase !== 'Roll' && gameState.turn.phase !== 'StartTurn');
-    moveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'Move';
-    endBtn.disabled = !isMyTurn || gameState.turn.phase !== 'EndTurn';
+    if (rollBtn && moveBtn && resolveBtn && endBtn) {
+      rollBtn.disabled = !isMyTurn || (gameState.turn.phase !== 'Roll' && gameState.turn.phase !== 'StartTurn');
+      moveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'Move';
+      resolveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'ResolveTile';
+      endBtn.disabled = !isMyTurn || gameState.turn.phase !== 'EndTurn';
+    }
   }
 
-  // Render Event Feed
+  // 4. Render Event Feed
   const feed = document.getElementById('event-feed');
   if (feed) {
     feed.innerHTML = gameState.eventLog.map(e => {
@@ -314,15 +521,38 @@ function updateUI(gameState: EngineState) {
       if (e.type === 'PIECE_MOVED') text = `🏃 Player ${e.playerId} moved forward ${e.payload.spaces} steps`;
       if (e.type === 'PHASE_CHANGED') text = `⚙️ Phase changed to: ${e.payload.phase}`;
       if (e.type === 'TURN_ENDED') text = `🏁 Player ${e.playerId} ended their turn`;
+      if (e.type === 'PLAYER_JOINED') text = `👤 Player ${e.playerId} joined the lobby`;
+      if (e.type === 'PLAYER_WON') text = `🏆 Player ${e.playerId} reached the finish and won!`;
       return `<div class="event-item">${text}</div>`;
     }).join('');
     feed.scrollTop = feed.scrollHeight;
   }
 
-  // Render Inspector
+  // 5. Render inspector JSON
   const inspector = document.getElementById('state-inspector');
   if (inspector) {
     inspector.innerText = JSON.stringify(gameState, null, 2);
+  }
+
+  // 6. Victory Celeb Check
+  const winEvent = gameState.eventLog.find(e => e.type === 'PLAYER_WON');
+  const victoryEl = document.getElementById('victory-overlay');
+  if (victoryEl) {
+    if (winEvent) {
+      const winner = gameState.players[winEvent.playerId!];
+      victoryEl.innerHTML = `
+        <div style="font-size: 48px; margin-bottom: 16px; animation: bounce 1s infinite;">🎉🏆🥇</div>
+        <h1 style="background: linear-gradient(to right, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">Player ${winEvent.playerId} (${winner?.emojiFace}) Wins!</h1>
+        <p style="color: var(--text-muted); font-size: 16px;">Successfully reached the Home tile ${ludoModule.rules.winningTile}!</p>
+        <button class="action-btn" id="btn-victory-close" style="margin-top: 24px; background: #8b5cf6;">Close Overlay</button>
+      `;
+      victoryEl.style.display = 'flex';
+      document.getElementById('btn-victory-close')?.addEventListener('click', () => {
+        victoryEl.style.display = 'none';
+      });
+    } else {
+      victoryEl.style.display = 'none';
+    }
   }
 }
 

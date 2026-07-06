@@ -22,13 +22,13 @@ export interface EngineState {
 }
 
 export interface EngineCommand {
-  type: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN';
+  type: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE';
   playerId: string;
   payload?: any;
 }
 
 export interface EngineEvent {
-  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED';
+  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED' | 'PLAYER_WON';
   playerId?: string;
   payload?: any;
   timestamp: number;

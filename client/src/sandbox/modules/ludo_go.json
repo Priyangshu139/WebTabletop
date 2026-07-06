@@ -1,0 +1,33 @@
+{
+  "moduleId": "ludo-go-classic",
+  "version": "1.0.0",
+  "name": "Ludo Go Classic",
+  "description": "A roll-and-move race board with rocket boosters and sand traps.",
+  "rules": {
+    "diceCount": 1,
+    "diceMax": 6,
+    "maxPlayers": 4,
+    "winningTile": 15
+  },
+  "board": {
+    "tilesCount": 16,
+    "tiles": [
+      { "index": 0, "type": "START", "name": "Start Space", "color": "#10b981", "emoji": "🏁" },
+      { "index": 1, "type": "NORMAL", "name": "Space 1", "color": "#334155", "emoji": "🌱" },
+      { "index": 2, "type": "NORMAL", "name": "Space 2", "color": "#334155", "emoji": "🌱" },
+      { "index": 3, "type": "NORMAL", "name": "Space 3", "color": "#334155", "emoji": "🌱" },
+      { "index": 4, "type": "BOOST", "name": "Rocket Boost", "color": "#f59e0b", "emoji": "🚀", "payload": { "spaces": 3 } },
+      { "index": 5, "type": "NORMAL", "name": "Space 5", "color": "#334155", "emoji": "🌱" },
+      { "index": 6, "type": "NORMAL", "name": "Space 6", "color": "#334155", "emoji": "🌱" },
+      { "index": 7, "type": "NORMAL", "name": "Space 7", "color": "#334155", "emoji": "🌱" },
+      { "index": 8, "type": "TRAP", "name": "Sand Trap", "color": "#ef4444", "emoji": "🏜️", "payload": { "spaces": -2 } },
+      { "index": 9, "type": "NORMAL", "name": "Space 9", "color": "#334155", "emoji": "🌱" },
+      { "index": 10, "type": "NORMAL", "name": "Space 10", "color": "#334155", "emoji": "🌱" },
+      { "index": 11, "type": "NORMAL", "name": "Space 11", "color": "#334155", "emoji": "🌱" },
+      { "index": 12, "type": "NORMAL", "name": "Space 12", "color": "#334155", "emoji": "🌱" },
+      { "index": 13, "type": "NORMAL", "name": "Space 13", "color": "#334155", "emoji": "🌱" },
+      { "index": 14, "type": "NORMAL", "name": "Space 14", "color": "#334155", "emoji": "🌱" },
+      { "index": 15, "type": "FINISH", "name": "Home Path", "color": "#8b5cf6", "emoji": "🏆" }
+    ]
+  }
+}

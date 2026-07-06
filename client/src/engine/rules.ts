@@ -1,5 +1,6 @@
 import { EngineState, EngineCommand, EngineEvent } from './types';
 import { PRNG } from './prng';
+import ludoModule from '../sandbox/modules/ludo_go.json';
 
 export function validateCommand(
   state: EngineState,
@@ -44,6 +45,51 @@ export function validateCommand(
         payload: { spaces: command.payload.spaces },
         timestamp: Date.now()
       });
+      events.push({
+        type: 'PHASE_CHANGED',
+        payload: { phase: 'ResolveTile' },
+        timestamp: Date.now()
+      });
+      break;
+    }
+
+    case 'RESOLVE_TILE': {
+      if (state.turn.phase !== 'ResolveTile') {
+        throw new Error('You cannot resolve tiles at this phase.');
+      }
+
+      const currentPos = state.moduleState.playerPositions[command.playerId] || 0;
+      const tile = ludoModule.board.tiles.find(t => t.index === currentPos);
+      let finalPos = currentPos;
+
+      if (tile) {
+        if (tile.type === 'BOOST' && tile.payload?.spaces) {
+          events.push({
+            type: 'PIECE_MOVED',
+            playerId: command.playerId,
+            payload: { spaces: tile.payload.spaces },
+            timestamp: Date.now()
+          });
+          finalPos += tile.payload.spaces;
+        } else if (tile.type === 'TRAP' && tile.payload?.spaces) {
+          events.push({
+            type: 'PIECE_MOVED',
+            playerId: command.playerId,
+            payload: { spaces: tile.payload.spaces },
+            timestamp: Date.now()
+          });
+          finalPos += tile.payload.spaces;
+        }
+      }
+
+      if (finalPos >= ludoModule.rules.winningTile) {
+        events.push({
+          type: 'PLAYER_WON',
+          playerId: command.playerId,
+          timestamp: Date.now()
+        });
+      }
+
       events.push({
         type: 'PHASE_CHANGED',
         payload: { phase: 'EndTurn' },
