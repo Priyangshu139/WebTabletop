@@ -54,4 +54,19 @@ describe('Pure State Reducer', () => {
     expect(nextTurnState.turn.currentPlayerId).toBe('P2');
     expect(nextTurnState.turn.phase).toBe('StartTurn');
   });
+
+  it('adds player to state on PLAYER_JOINED event', () => {
+    const joinEvent: EngineEvent = {
+      type: 'PLAYER_JOINED',
+      playerId: 'P3',
+      payload: { color: 'green', skinTone: 'dark', emojiFace: '🤖' },
+      timestamp: 1003
+    };
+    const resultState = applyEvent(initialTestState, joinEvent);
+
+    expect(resultState.players['P3']).toBeDefined();
+    expect(resultState.players['P3'].color).toBe('green');
+    expect(resultState.players['P3'].emojiFace).toBe('🤖');
+    expect(resultState.moduleState.playerPositions['P3']).toBe(0);
+  });
 });

@@ -29,6 +29,18 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       nextState.turn.currentPlayerId = playerIds[nextIndex];
       nextState.turn.phase = 'StartTurn';
       break;
+
+    case 'PLAYER_JOINED':
+      const newPid = event.playerId!;
+      nextState.players[newPid] = {
+        id: newPid,
+        color: event.payload.color || '#3b82f6',
+        skinTone: event.payload.skinTone || 'medium',
+        emojiFace: event.payload.emojiFace || '🐼',
+        isHost: false
+      };
+      nextState.moduleState.playerPositions[newPid] = 0;
+      break;
   }
 
   return nextState;

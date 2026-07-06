@@ -28,7 +28,7 @@ export interface EngineCommand {
 }
 
 export interface EngineEvent {
-  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED';
+  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED';
   playerId?: string;
   payload?: any;
   timestamp: number;
