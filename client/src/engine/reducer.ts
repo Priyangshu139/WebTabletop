@@ -6,6 +6,76 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
   nextState.eventLog.push(event);
 
   switch (event.type) {
+    case 'LOBBY_GAME_SELECTED':
+      nextState.selectedGame = event.payload.game;
+      nextState.activeModule = event.payload.game;
+      break;
+
+    case 'LOBBY_SETTINGS_UPDATED':
+      nextState.lobbySettings = nextState.lobbySettings || {};
+      nextState.lobbySettings = { ...nextState.lobbySettings, ...event.payload.settings };
+      if (event.payload.settings.timerLimit !== undefined) {
+        nextState.timerLimit = event.payload.settings.timerLimit;
+      }
+      break;
+
+    case 'PAWN_COLOR_CHANGED': {
+      const p = nextState.players[event.playerId!];
+      if (p) {
+        p.color = event.payload.color;
+      }
+      break;
+    }
+
+    case 'GAME_STARTED': {
+      nextState.lobbyStarted = true;
+      nextState.turnStartedAt = Date.now();
+      nextState.turn.phase = 'StartTurn';
+      nextState.turn.currentPlayerId = 'P1';
+
+      const activeGame = nextState.selectedGame || 'ludo-go-classic';
+      if (activeGame === 'uno-go') {
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'SKIP', 'REVERSE', 'DRAW_TWO'];
+        let idCounter = 0;
+        const unoDeck: any[] = [];
+        const unoDiscardPile: any[] = [];
+        colors.forEach(col => {
+          values.forEach(val => {
+            unoDeck.push({ id: `c-${idCounter++}`, color: col, value: val });
+          });
+        });
+        unoDeck.sort(() => Math.random() - 0.5);
+        unoDiscardPile.push(unoDeck.shift());
+
+        nextState.moduleState.unoDeck = unoDeck;
+        nextState.moduleState.unoDiscardPile = unoDiscardPile;
+
+        Object.keys(nextState.players).forEach(pid => {
+          const p = nextState.players[pid];
+          if (!p.isSpectator) {
+            p.hand = [];
+            for (let i = 0; i < 7; i++) {
+              if (unoDeck.length > 0) {
+                p.hand.push(unoDeck.shift());
+              }
+            }
+          }
+        });
+      } else {
+        nextState.moduleState.playerPositions = {};
+        Object.keys(nextState.players).forEach(pid => {
+          const p = nextState.players[pid];
+          if (!p.isSpectator) {
+            nextState.moduleState.playerPositions[pid] = 0;
+            p.money = activeGame === 'monopoly-go' ? 1500 : undefined;
+          }
+        });
+        nextState.moduleState.propertiesOwned = activeGame === 'monopoly-go' ? {} : undefined;
+      }
+      break;
+    }
+
     case 'DICE_ROLLED':
       nextState.moduleState.lastDiceValue = event.payload.value;
       // Deterministic PRNG tick progression tracked in state

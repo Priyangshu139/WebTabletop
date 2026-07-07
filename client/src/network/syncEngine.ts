@@ -12,8 +12,8 @@ export class SyncEngine {
   public chatHistory: any[] = [];
   public playerTraits: any;
 
-  private lobbyId: string;
-  private secretHash: string;
+  public lobbyId: string;
+  public secretHash: string;
   private signalingUrl: string;
   private restUrl: string;
 

@@ -93,4 +93,37 @@ describe('Pure State Reducer', () => {
     // Spectators do not have positions on Ludo/Monopoly boards
     expect(resultState.moduleState.playerPositions['P3']).toBeUndefined();
   });
+
+  it('verifies game selection and lobby start updates state correctly', () => {
+    // Select Game
+    const selectEvent: EngineEvent = {
+      type: 'LOBBY_GAME_SELECTED',
+      playerId: 'P1',
+      payload: { game: 'monopoly-go' },
+      timestamp: 2001
+    };
+    let state = applyEvent(initialTestState, selectEvent);
+    expect(state.selectedGame).toBe('monopoly-go');
+    expect(state.activeModule).toBe('monopoly-go');
+
+    // Change Color
+    const colorEvent: EngineEvent = {
+      type: 'PAWN_COLOR_CHANGED',
+      playerId: 'P1',
+      payload: { color: '#ef4444' },
+      timestamp: 2002
+    };
+    state = applyEvent(state, colorEvent);
+    expect(state.players['P1'].color).toBe('#ef4444');
+
+    // Start Game
+    const startEvent: EngineEvent = {
+      type: 'GAME_STARTED',
+      playerId: 'P1',
+      timestamp: 2003
+    };
+    state = applyEvent(state, startEvent);
+    expect(state.lobbyStarted).toBe(true);
+    expect(state.moduleState.playerPositions['P1']).toBe(0);
+  });
 });

@@ -14,6 +14,50 @@ export function validateCommand(
     throw new Error('Spectators cannot take actions.');
   }
 
+  // Lobby actions validation
+  if (
+    command.type === 'SELECT_LOBBY_GAME' ||
+    command.type === 'UPDATE_LOBBY_SETTINGS' ||
+    command.type === 'CHANGE_PAWN_COLOR' ||
+    command.type === 'START_GAME'
+  ) {
+    if (command.type !== 'CHANGE_PAWN_COLOR' && !player?.isHost) {
+      throw new Error('Only the lobby Host can modify settings.');
+    }
+
+    if (command.type === 'SELECT_LOBBY_GAME') {
+      return [{
+        type: 'LOBBY_GAME_SELECTED',
+        playerId: command.playerId,
+        payload: { game: command.payload.game },
+        timestamp: Date.now()
+      }];
+    }
+    if (command.type === 'UPDATE_LOBBY_SETTINGS') {
+      return [{
+        type: 'LOBBY_SETTINGS_UPDATED',
+        playerId: command.playerId,
+        payload: { settings: command.payload.settings },
+        timestamp: Date.now()
+      }];
+    }
+    if (command.type === 'CHANGE_PAWN_COLOR') {
+      return [{
+        type: 'PAWN_COLOR_CHANGED',
+        playerId: command.playerId,
+        payload: { color: command.payload.color },
+        timestamp: Date.now()
+      }];
+    }
+    if (command.type === 'START_GAME') {
+      return [{
+        type: 'GAME_STARTED',
+        playerId: command.playerId,
+        timestamp: Date.now()
+      }];
+    }
+  }
+
   // Turn enforcement (exempt PIN_DISCORD command)
   if (command.type !== 'PIN_DISCORD' && state.turn.currentPlayerId !== command.playerId) {
     throw new Error('Not your turn.');
