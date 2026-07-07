@@ -69,4 +69,28 @@ describe('Pure State Reducer', () => {
     expect(resultState.players['P3'].emojiFace).toBe('🤖');
     expect(resultState.moduleState.playerPositions['P3']).toBe(0);
   });
+
+  it('verifies turn timer epoch resets on TURN_ENDED', () => {
+    const turnEndEvent: EngineEvent = {
+      type: 'TURN_ENDED',
+      playerId: 'P1',
+      timestamp: 1002
+    };
+    const resultState = applyEvent(initialTestState, turnEndEvent);
+    expect(resultState.turnStartedAt).toBeDefined();
+    expect(resultState.turnStartedAt).toBeGreaterThan(0);
+  });
+
+  it('verifies spectator isSpectator flag registration on PLAYER_JOINED', () => {
+    const joinEvent: EngineEvent = {
+      type: 'PLAYER_JOINED',
+      playerId: 'P3',
+      payload: { color: 'green', emojiFace: '🤖', isSpectator: true },
+      timestamp: 1003
+    };
+    const resultState = applyEvent(initialTestState, joinEvent);
+    expect(resultState.players['P3'].isSpectator).toBe(true);
+    // Spectators do not have positions on Ludo/Monopoly boards
+    expect(resultState.moduleState.playerPositions['P3']).toBeUndefined();
+  });
 });

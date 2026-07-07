@@ -10,6 +10,7 @@ export class SyncEngine {
   public playerId: string;
   public isHost: boolean;
   public chatHistory: any[] = [];
+  public playerTraits: any;
 
   private lobbyId: string;
   private secretHash: string;
@@ -32,7 +33,8 @@ export class SyncEngine {
     restUrl: string,
     onStateUpdate: (state: EngineState) => void,
     onError?: (msg: string) => void,
-    onChatReceived?: (chat: any) => void
+    onChatReceived?: (chat: any) => void,
+    playerTraits?: any
   ) {
     this.state = initialState;
     this.lobbyId = lobbyId;
@@ -44,6 +46,7 @@ export class SyncEngine {
     this.onStateUpdate = onStateUpdate;
     this.onError = onError;
     this.onChatReceived = onChatReceived;
+    this.playerTraits = playerTraits || {};
 
     this.signalingClient = new SignalingClient(this.signalingUrl);
     this.webrtcManager = new WebRTCManager(this.isHost, this.signalingClient);
@@ -114,56 +117,64 @@ export class SyncEngine {
         this.onChatReceived?.(data.chat);
       } else if (data.type === 'ERROR') {
         this.onError?.(data.message);
+      } else if (data.type === 'HANDSHAKE') {
+        if (this.isHost) {
+          const payload: any = {
+            color: data.traits?.color || '#3b82f6',
+            emojiFace: data.traits?.emojiFace || '🐼',
+            skinTone: data.traits?.skinTone || 'medium',
+            isSpectator: !!data.traits?.isSpectator
+          };
+
+          // Draw starting hand if Uno and not a spectator
+          if (this.state.activeModule === 'uno-go' && !payload.isSpectator) {
+            const startHand: any[] = [];
+            const deck = this.state.moduleState.unoDeck || [];
+            for (let i = 0; i < 7; i++) {
+              if (deck.length > 0) {
+                const card = deck.shift();
+                startHand.push(card);
+              }
+            }
+            payload.startHand = startHand;
+          }
+
+          const joinEvent: EngineEvent = {
+            type: 'PLAYER_JOINED',
+            playerId: senderId,
+            payload,
+            timestamp: Date.now()
+          };
+
+          this.state = applyEvent(this.state, joinEvent);
+          this.onStateUpdate(this.state);
+
+          // Broadcast join event to all other peers
+          this.webrtcManager.broadcast({
+            type: 'EVENTS',
+            events: [joinEvent]
+          });
+
+          // Send full synchronized state and chat history to the newly connected peer
+          this.webrtcManager.sendTo(senderId, {
+            type: 'SYNC_STATE',
+            state: this.state,
+            chatHistory: this.chatHistory
+          });
+
+          // Save the updated state to the backend
+          this.saveStateToBackend();
+        }
       }
     };
 
     this.webrtcManager.onPeerConnected = (peerId) => {
-      if (this.isHost) {
-        // Generate a PLAYER_JOINED event authoritative state transition
-        const payload: any = {
-          color: peerId === 'P1' ? '#ef4444' : '#3b82f6',
-          emojiFace: peerId === 'P1' ? '🦊' : '🐼',
-          skinTone: 'medium'
-        };
-
-        // Draw starting hand if Uno
-        if (this.state.activeModule === 'uno-go') {
-          const startHand: any[] = [];
-          const deck = this.state.moduleState.unoDeck || [];
-          for (let i = 0; i < 7; i++) {
-            if (deck.length > 0) {
-              const card = deck.shift();
-              startHand.push(card);
-            }
-          }
-          payload.startHand = startHand;
-        }
-
-        const joinEvent: EngineEvent = {
-          type: 'PLAYER_JOINED',
-          playerId: peerId,
-          payload,
-          timestamp: Date.now()
-        };
-
-        this.state = applyEvent(this.state, joinEvent);
-        this.onStateUpdate(this.state);
-
-        // Broadcast the PLAYER_JOINED event to all connected peers
-        this.webrtcManager.broadcast({
-          type: 'EVENTS',
-          events: [joinEvent]
+      if (!this.isHost && peerId === 'P1') {
+        // Send traits handshake to Host P1
+        this.webrtcManager.sendTo('P1', {
+          type: 'HANDSHAKE',
+          traits: this.playerTraits
         });
-
-        // Send full synchronized state and chat history to the newly connected peer
-        this.webrtcManager.sendTo(peerId, {
-          type: 'SYNC_STATE',
-          state: this.state,
-          chatHistory: this.chatHistory
-        });
-
-        // Save the updated state to the backend
-        this.saveStateToBackend();
       }
     };
 

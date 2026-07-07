@@ -6,6 +6,7 @@ export interface Player {
   isHost: boolean;
   money?: number;
   hand?: any[];
+  isSpectator?: boolean;
 }
 
 export interface EngineState {
@@ -26,6 +27,8 @@ export interface EngineState {
     unoDiscardPile?: any[];
   };
   discordInviteLink?: string;
+  timerLimit?: number; // in seconds
+  turnStartedAt?: number; // timestamp
 }
 
 export interface EngineCommand {

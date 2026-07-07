@@ -126,4 +126,28 @@ describe('Rule Validation Engine', () => {
     };
     expect(() => validateCommand(unoState, invalidCmd, prng)).toThrow('Card color or value does not match discard pile.');
   });
+
+  it('rejects commands executed by spectators', () => {
+    const spectatorState: EngineState = {
+      seed: 'test-seed',
+      prngState: 0,
+      activeModule: 'uno-go',
+      players: {
+        'P1': { id: 'P1', color: 'Red', skinTone: 'light', emojiFace: '😀', isHost: true },
+        'P2': { id: 'P2', color: 'Blue', skinTone: 'medium', emojiFace: '😎', isHost: false, isSpectator: true }
+      },
+      turn: { currentPlayerId: 'P2', phase: 'StartTurn' },
+      eventLog: [],
+      moduleState: {
+        lastDiceValue: 0,
+        playerPositions: {},
+        unoDiscardPile: [],
+        unoDeck: []
+      }
+    };
+    const command: EngineCommand = { type: 'DRAW_CARD', playerId: 'P2' };
+    const prng = new PRNG(spectatorState.seed, spectatorState.prngState);
+
+    expect(() => validateCommand(spectatorState, command, prng)).toThrow('Spectators cannot take actions.');
+  });
 });

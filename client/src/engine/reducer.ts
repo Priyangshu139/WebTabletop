@@ -22,32 +22,40 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       nextState.turn.phase = event.payload.phase;
       break;
 
-    case 'TURN_ENDED':
-      const playerIds = Object.keys(nextState.players);
+    case 'TURN_ENDED': {
+      const playerIds = Object.keys(nextState.players).filter(pid => !nextState.players[pid].isSpectator);
       const targetNextPlayerId = event.payload?.nextPlayerId;
-      if (targetNextPlayerId && nextState.players[targetNextPlayerId]) {
+      if (targetNextPlayerId && nextState.players[targetNextPlayerId] && !nextState.players[targetNextPlayerId].isSpectator) {
         nextState.turn.currentPlayerId = targetNextPlayerId;
-      } else {
+      } else if (playerIds.length > 0) {
         const currentIndex = playerIds.indexOf(nextState.turn.currentPlayerId);
         const nextIndex = (currentIndex + 1) % playerIds.length;
         nextState.turn.currentPlayerId = playerIds[nextIndex];
       }
       nextState.turn.phase = 'StartTurn';
+      nextState.turnStartedAt = Date.now();
       break;
+    }
 
-    case 'PLAYER_JOINED':
+    case 'PLAYER_JOINED': {
       const newPid = event.playerId!;
+      const isSpec = !!event.payload.isSpectator;
       nextState.players[newPid] = {
         id: newPid,
         color: event.payload.color || '#3b82f6',
         skinTone: event.payload.skinTone || 'medium',
         emojiFace: event.payload.emojiFace || '🐼',
         isHost: false,
-        money: nextState.activeModule === 'monopoly-go' ? 1500 : undefined,
-        hand: nextState.activeModule === 'uno-go' ? event.payload.startHand || [] : undefined
+        isSpectator: isSpec,
+        money: !isSpec && nextState.activeModule === 'monopoly-go' ? 1500 : undefined,
+        hand: !isSpec && nextState.activeModule === 'uno-go' ? event.payload.startHand || [] : undefined
       };
-      nextState.moduleState.playerPositions[newPid] = 0;
+      if (!isSpec) {
+        nextState.moduleState.playerPositions[newPid] = 0;
+      }
+      nextState.turnStartedAt = Date.now();
       break;
+    }
 
     case 'DISCORD_PINNED':
       nextState.discordInviteLink = event.payload.link;

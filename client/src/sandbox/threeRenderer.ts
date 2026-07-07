@@ -178,8 +178,14 @@ export class ThreeRenderer {
     this.camera.lookAt(this.targetLookAt);
   }
 
-  public updateState(state: EngineState) {
+  private isSpectator: boolean = false;
+
+  public updateState(state: EngineState, isSpectator = false, spectatingPlayerId = 'P1') {
     this.currentState = state;
+    this.isSpectator = isSpectator;
+
+    // Camera perspective focus matches the spectated player's seat position
+    const targetPId = isSpectator ? spectatingPlayerId : this.activePlayerId;
 
     // 1. Synchronize seated Avatars
     this.syncSeatedAvatars(state);
@@ -189,7 +195,7 @@ export class ThreeRenderer {
     this.clearGameComponents();
 
     if (activeModule === 'uno-go') {
-      this.renderUnoBoard(state);
+      this.renderUnoBoard(state, targetPId);
     } else {
       this.renderMonopolyLudoBoard(state);
     }
@@ -407,7 +413,7 @@ export class ThreeRenderer {
     });
   }
 
-  private renderUnoBoard(state: EngineState) {
+  private renderUnoBoard(state: EngineState, targetPId: string) {
     // 1. Draw central card piles (deck stack & discard pile)
     this.deckMesh = new THREE.Group();
 
@@ -490,7 +496,7 @@ export class ThreeRenderer {
         const cardBox = new THREE.BoxGeometry(0.35, 0.55, 0.02);
         
         // Hide details of other players' hands (facing away or colored grey/card-back blue)
-        const isSelf = pid === this.activePlayerId;
+        const isSelf = !this.isSpectator && (pid === targetPId);
         const cardColor = isSelf ? this.getUnoCardColor(card.color) : 0x3b82f6;
 
         const cardMat = new THREE.MeshStandardMaterial({

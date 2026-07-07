@@ -10,6 +10,8 @@ let replayEngine: ReplayEngine | null = null;
 let threeRenderer: ThreeRenderer | null = null;
 let activeSeatId = 'P1';
 let isReplayMode = false;
+let spectatingPlayerId = 'P1';
+let timerIntervalId: any = null;
 
 const REST_URL = 'http://localhost:3000';
 const WS_URL = 'ws://localhost:3000';
@@ -89,14 +91,24 @@ function renderMatchmaking() {
         </div>
 
         <!-- Downloadable game module selection (Monopoly Lite / Ludo Go / Uno Lite) -->
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 6px;">
-          <h3 style="margin-top: 0;">Select Game Module</h3>
-          <label style="font-size: 12px; color: var(--text-muted);">Configure active tabletop module rules:</label>
-          <select id="lobby-game-module" style="background: #1e293b; color: white; padding: 10px; border-radius: 8px; border: 1px solid var(--panel-border); font-size: 14px; font-weight: bold; width: 100%;">
-            <option value="ludo-go-classic">Ludo Go Classic (Modifiers Board)</option>
-            <option value="monopoly-go">Monopoly Go Lite (Properties Board)</option>
-            <option value="uno-go">Uno Go Lite (Color Match Card Game)</option>
-          </select>
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+          <div>
+            <h3 style="margin-top: 0; font-size: 14px;">Select Game Module</h3>
+            <select id="lobby-game-module" style="background: #1e293b; color: white; padding: 10px; border-radius: 8px; border: 1px solid var(--panel-border); font-size: 13px; font-weight: bold; width: 100%;">
+              <option value="ludo-go-classic">Ludo Go Classic</option>
+              <option value="monopoly-go">Monopoly Go Lite</option>
+              <option value="uno-go">Uno Go Lite</option>
+            </select>
+          </div>
+          <div>
+            <h3 style="margin-top: 0; font-size: 14px;">Turn Timer Limit</h3>
+            <select id="lobby-turn-timer" style="background: #1e293b; color: white; padding: 10px; border-radius: 8px; border: 1px solid var(--panel-border); font-size: 13px; font-weight: bold; width: 100%;">
+              <option value="0">No turn timer</option>
+              <option value="15">15 Seconds</option>
+              <option value="30">30 Seconds</option>
+              <option value="60">60 Seconds</option>
+            </select>
+          </div>
         </div>
 
         <div style="border-bottom: 1px solid var(--panel-border); padding-bottom: 16px;">
@@ -109,6 +121,10 @@ function renderMatchmaking() {
           <div style="display: flex; gap: 10px; align-items: center;">
             <input type="text" id="input-lobby-code" placeholder="Enter Lobby Code" style="background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 12px; border-radius: 8px; font-size: 14px; text-transform: uppercase; width: 200px;">
             <button class="action-btn" id="btn-join-lobby">Join Game</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 10px;">
+            <input type="checkbox" id="join-as-spectator" style="width: 16px; height: 16px; cursor: pointer;">
+            <label for="join-as-spectator" style="font-size: 12px; color: var(--text-muted); cursor: pointer;">Join as Spectator (POV only, read-only)</label>
           </div>
         </div>
 
@@ -142,6 +158,7 @@ function renderMatchmaking() {
     showError('');
     const userTraits = getSavedAvatar();
     const gameModule = (document.getElementById('lobby-game-module') as HTMLSelectElement).value as any;
+    const timerLimit = parseInt((document.getElementById('lobby-turn-timer') as HTMLSelectElement).value);
 
     try {
       const res = await fetch(`${REST_URL}/api/lobby/create`, {
@@ -150,7 +167,7 @@ function renderMatchmaking() {
         body: JSON.stringify({ traits: userTraits })
       });
       const data = await res.json();
-      initializeSync(data.lobbyId, data.playerId, data.secretHash, true, undefined, userTraits, gameModule);
+      initializeSync(data.lobbyId, data.playerId, data.secretHash, true, undefined, userTraits, gameModule, timerLimit);
     } catch (err: any) {
       showError(`Failed to create lobby: ${err.message}`);
     }
@@ -165,11 +182,13 @@ function renderMatchmaking() {
     }
 
     const userTraits = getSavedAvatar();
+    const isSpec = (document.getElementById('join-as-spectator') as HTMLInputElement).checked;
+
     try {
       const res = await fetch(`${REST_URL}/api/lobby/join`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lobbyId, traits: userTraits })
+        body: JSON.stringify({ lobbyId, traits: { ...userTraits, isSpectator: isSpec } })
       });
       if (!res.ok) {
         showError(await res.text());
@@ -181,7 +200,7 @@ function renderMatchmaking() {
       const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state`);
       const stateData = await stateRes.json();
 
-      initializeSync(lobbyId, data.playerId, data.secretHash, false, stateData.state, userTraits);
+      initializeSync(lobbyId, data.playerId, data.secretHash, false, stateData.state, { ...userTraits, isSpectator: isSpec });
     } catch (err: any) {
       showError(`Failed to join lobby: ${err.message}`);
     }
@@ -264,10 +283,16 @@ async function initializeSync(
   isHost: boolean,
   savedState?: EngineState,
   traits?: any,
-  gameModule?: 'ludo-go-classic' | 'monopoly-go' | 'uno-go'
+  gameModule?: 'ludo-go-classic' | 'monopoly-go' | 'uno-go',
+  timerLimit?: number
 ) {
   activeSeatId = playerId;
   isReplayMode = false;
+  spectatingPlayerId = 'P1';
+  if (timerIntervalId !== null) {
+    clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
 
   const playerTraits = traits || getSavedAvatar();
   const activeGame = gameModule || savedState?.activeModule || 'ludo-go-classic';
@@ -295,6 +320,8 @@ async function initializeSync(
     seed: 'tabletop-seed-' + Math.random().toString(36).substring(7),
     prngState: 0,
     activeModule: activeGame,
+    timerLimit: timerLimit || undefined,
+    turnStartedAt: Date.now(),
     players: {
       'P1': {
         id: 'P1',
@@ -302,8 +329,9 @@ async function initializeSync(
         skinTone: isHost ? playerTraits.skinTone : 'light',
         emojiFace: isHost ? playerTraits.emojiFace : '🦊',
         isHost: true,
-        money: activeGame === 'monopoly-go' ? 1500 : undefined,
-        hand: activeGame === 'uno-go' ? [] : undefined
+        isSpectator: !!playerTraits.isSpectator,
+        money: activeGame === 'monopoly-go' && !playerTraits.isSpectator ? 1500 : undefined,
+        hand: activeGame === 'uno-go' && !playerTraits.isSpectator ? [] : undefined
       }
     },
     turn: {
@@ -335,10 +363,13 @@ async function initializeSync(
       skinTone: playerTraits.skinTone,
       emojiFace: playerTraits.emojiFace,
       isHost: isHost,
-      money: activeGame === 'monopoly-go' ? 1500 : undefined,
-      hand: activeGame === 'uno-go' ? [] : undefined
+      isSpectator: !!playerTraits.isSpectator,
+      money: activeGame === 'monopoly-go' && !playerTraits.isSpectator ? 1500 : undefined,
+      hand: activeGame === 'uno-go' && !playerTraits.isSpectator ? [] : undefined
     };
-    initialState.moduleState.playerPositions[playerId] = 0;
+    if (!playerTraits.isSpectator) {
+      initialState.moduleState.playerPositions[playerId] = 0;
+    }
   }
 
   // Setup main layout for game session (incorporates 3D canvas viewport)
@@ -351,6 +382,18 @@ async function initializeSync(
         </div>
 
         <div id="discord-active-banner" style="display: none;"></div>
+
+        <div id="turn-timer-banner" style="background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;">
+          <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #fca5a5;">
+            <span>⏱️ Turn Timer Active</span>
+            <span id="turn-timer-text">0s left</span>
+          </div>
+          <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+            <div id="turn-timer-bar" style="width: 100%; height: 100%; background: #ef4444; transition: width 0.2s linear;"></div>
+          </div>
+        </div>
+
+        <div id="spectator-view-banner" style="display: none; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px;"></div>
 
         <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace;">
           <strong>RECONNECT KEY:</strong> Copy the below payload to restore session:<br>
@@ -535,6 +578,10 @@ async function initializeSync(
     });
 
     document.getElementById('btn-exit-game')?.addEventListener('click', () => {
+      if (timerIntervalId !== null) {
+        clearInterval(timerIntervalId);
+        timerIntervalId = null;
+      }
       syncEngine?.close();
       syncEngine = null;
       if (threeRenderer) {
@@ -545,7 +592,6 @@ async function initializeSync(
     });
   }
 
-  // Create and start SyncEngine with chat callback
   syncEngine = new SyncEngine(
     initialState,
     lobbyId,
@@ -577,7 +623,8 @@ async function initializeSync(
     },
     (chat) => {
       appendChatMessage(chat);
-    }
+    },
+    playerTraits
   );
 
   try {
@@ -783,6 +830,43 @@ function getUnoColorHex(color: string): string {
 
 function updateUI(gameState: EngineState) {
   const activeGame = gameState.activeModule || 'ludo-go-classic';
+  const isSpectator = gameState.players[activeSeatId]?.isSpectator === true;
+
+  // Render Spectator Banner and POV selector
+  const specBanner = document.getElementById('spectator-view-banner');
+  if (specBanner) {
+    if (isSpectator) {
+      specBanner.innerHTML = `
+        <div style="display: flex; flex-direction: column; gap: 4px; font-size: 13px;">
+          <div style="font-weight: bold; color: #a5b4fc;">🎥 SPECTATOR POV MODE</div>
+          <div style="color: var(--text-muted);">You are watching Player ${spectatingPlayerId === 'P1' ? '1' : spectatingPlayerId}'s field of view. Controls are read-only.</div>
+          <div style="display: flex; align-items: center; gap: 8px; margin-top: 4px;">
+            <span>Watch POV:</span>
+            <select id="select-spectator-pov" style="background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 4px; border-radius: 4px; font-size: 12px; cursor: pointer;">
+              ${Object.keys(gameState.players).filter(pid => !gameState.players[pid].isSpectator).map(pid => `
+                <option value="${pid}" ${pid === spectatingPlayerId ? 'selected' : ''}>Player ${pid === 'P1' ? '1' : pid}</option>
+              `).join('')}
+            </select>
+          </div>
+        </div>
+      `;
+      specBanner.style.display = 'block';
+
+      // Bind POV change handler
+      const povSelect = document.getElementById('select-spectator-pov') as HTMLSelectElement;
+      if (povSelect) {
+        povSelect.addEventListener('change', () => {
+          spectatingPlayerId = povSelect.value;
+          updateUI(gameState);
+        });
+      }
+    } else {
+      specBanner.style.display = 'none';
+    }
+  }
+
+  // Refresh visual turn timer ticker
+  refreshVisualTimer(gameState);
 
   // Dynamic DOM panels showing / hiding
   const physicsSurface = document.getElementById('physics-dice-surface');
@@ -792,8 +876,8 @@ function updateUI(gameState: EngineState) {
   const buyBtn = document.getElementById('btn-buy-property');
   const drawBtn = document.getElementById('btn-draw-card');
 
-  if (physicsSurface) physicsSurface.style.display = activeGame === 'uno-go' ? 'none' : 'block';
-  if (unoHandGui) unoHandGui.style.display = activeGame === 'uno-go' ? 'block' : 'none';
+  if (physicsSurface) physicsSurface.style.display = (activeGame === 'uno-go' || isSpectator) ? 'none' : 'block';
+  if (unoHandGui) unoHandGui.style.display = (activeGame !== 'uno-go' || isSpectator) ? 'none' : 'block';
   if (moveBtn) moveBtn.style.display = activeGame === 'uno-go' ? 'none' : 'block';
   if (resolveBtn) resolveBtn.style.display = activeGame === 'uno-go' ? 'none' : 'block';
   if (buyBtn) buyBtn.style.display = activeGame === 'monopoly-go' ? 'block' : 'none';
@@ -801,7 +885,7 @@ function updateUI(gameState: EngineState) {
 
   // 1. Notify 3D WebGL renderer to update meshes dynamically
   if (threeRenderer) {
-    threeRenderer.updateState(gameState);
+    threeRenderer.updateState(gameState, isSpectator, spectatingPlayerId);
   }
 
   // 2. Draw active seat lists with Monopoly Cash and Uno cards counter indicators
@@ -905,22 +989,30 @@ function updateUI(gameState: EngineState) {
     const isRollPhase = gameState.turn.phase === 'Roll' || gameState.turn.phase === 'StartTurn';
 
     if (moveBtn && resolveBtn && buyPropertyBtn && drawCardBtn && endBtn) {
-      moveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'Move';
-      resolveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'ResolveTile';
-      buyPropertyBtn.disabled = !isMyTurn || gameState.turn.phase !== 'OptionalActions';
-      drawCardBtn.disabled = !isMyTurn || gameState.turn.phase !== 'StartTurn';
-      
-      // End turn options
-      if (activeGame === 'monopoly-go') {
-        endBtn.disabled = !isMyTurn || (gameState.turn.phase !== 'EndTurn' && gameState.turn.phase !== 'OptionalActions');
+      if (isSpectator) {
+        moveBtn.disabled = true;
+        resolveBtn.disabled = true;
+        buyPropertyBtn.disabled = true;
+        drawCardBtn.disabled = true;
+        endBtn.disabled = true;
       } else {
-        endBtn.disabled = !isMyTurn || gameState.turn.phase !== 'EndTurn';
+        moveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'Move';
+        resolveBtn.disabled = !isMyTurn || gameState.turn.phase !== 'ResolveTile';
+        buyPropertyBtn.disabled = !isMyTurn || gameState.turn.phase !== 'OptionalActions';
+        drawCardBtn.disabled = !isMyTurn || gameState.turn.phase !== 'StartTurn';
+        
+        // End turn options
+        if (activeGame === 'monopoly-go') {
+          endBtn.disabled = !isMyTurn || (gameState.turn.phase !== 'EndTurn' && gameState.turn.phase !== 'OptionalActions');
+        } else {
+          endBtn.disabled = !isMyTurn || gameState.turn.phase !== 'EndTurn';
+        }
       }
     }
 
     if (dice) {
       dice.innerText = gameState.moduleState.lastDiceValue ? String(gameState.moduleState.lastDiceValue) : '🎲';
-      if (isMyTurn && isRollPhase && activeGame !== 'uno-go') {
+      if (isMyTurn && isRollPhase && activeGame !== 'uno-go' && !isSpectator) {
         dice.style.opacity = '1.0';
         dice.style.pointerEvents = 'auto';
       } else {
@@ -996,6 +1088,81 @@ function updateUI(gameState: EngineState) {
       banner.style.display = 'block';
     } else {
       banner.style.display = 'none';
+    }
+  }
+}
+
+function refreshVisualTimer(gameState: EngineState) {
+  if (timerIntervalId !== null) {
+    clearInterval(timerIntervalId);
+    timerIntervalId = null;
+  }
+
+  const timerBanner = document.getElementById('turn-timer-banner');
+  const timerBar = document.getElementById('turn-timer-bar');
+  const timerText = document.getElementById('turn-timer-text');
+  if (!timerBanner || !timerBar || !timerText) return;
+
+  const limit = gameState.timerLimit || 0;
+  if (limit <= 0) {
+    timerBanner.style.display = 'none';
+    return;
+  }
+
+  timerBanner.style.display = 'block';
+
+  const updateBar = () => {
+    const elapsed = (Date.now() - (gameState.turnStartedAt || Date.now())) / 1000;
+    const remaining = Math.max(0, limit - elapsed);
+    const pct = (remaining / limit) * 100;
+    timerBar.style.width = `${pct}%`;
+    timerText.innerText = `${Math.ceil(remaining)}s left`;
+
+    if (remaining <= 0) {
+      if (timerIntervalId !== null) {
+        clearInterval(timerIntervalId);
+        timerIntervalId = null;
+      }
+      if (syncEngine && syncEngine.isHost && syncEngine.state.turn.currentPlayerId === activeSeatId) {
+        triggerAutoTurnAction(syncEngine.state);
+      }
+    }
+  };
+
+  updateBar();
+  timerIntervalId = setInterval(updateBar, 250);
+}
+
+function triggerAutoTurnAction(state: EngineState) {
+  if (!syncEngine) return;
+  const activeGame = state.activeModule || 'ludo-go-classic';
+
+  if (activeGame === 'uno-go') {
+    const myHand = state.players[state.turn.currentPlayerId]?.hand || [];
+    const topCard = state.moduleState.unoDiscardPile?.[state.moduleState.unoDiscardPile.length - 1];
+    let played = false;
+
+    if (topCard) {
+      const match = myHand.find((c: any) => c.color === topCard.color || c.value === topCard.value);
+      if (match) {
+        syncEngine.dispatch('PLAY_CARD', { card: match });
+        played = true;
+      }
+    }
+
+    if (!played) {
+      syncEngine.dispatch('DRAW_CARD');
+    }
+  } else {
+    // Ludo or Monopoly
+    if (state.turn.phase === 'Roll' || state.turn.phase === 'StartTurn') {
+      syncEngine.dispatch('ROLL_DICE', { speed: 0.25 });
+    } else if (state.turn.phase === 'Move') {
+      syncEngine.dispatch('MOVE_PIECE', { spaces: state.moduleState.lastDiceValue || 3 });
+    } else if (state.turn.phase === 'ResolveTile') {
+      syncEngine.dispatch('RESOLVE_TILE');
+    } else if (state.turn.phase === 'OptionalActions' || state.turn.phase === 'EndTurn') {
+      syncEngine.dispatch('END_TURN');
     }
   }
 }

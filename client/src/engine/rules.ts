@@ -8,6 +8,12 @@ export function validateCommand(
   command: EngineCommand,
   prng: PRNG
 ): EngineEvent[] {
+  // Spectator enforcement
+  const player = state.players[command.playerId];
+  if (player && player.isSpectator) {
+    throw new Error('Spectators cannot take actions.');
+  }
+
   // Turn enforcement (exempt PIN_DISCORD command)
   if (command.type !== 'PIN_DISCORD' && state.turn.currentPlayerId !== command.playerId) {
     throw new Error('Not your turn.');
