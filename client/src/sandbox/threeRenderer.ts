@@ -22,8 +22,9 @@ export class ThreeRenderer {
   private previousMouseY: number = 0;
 
   // Procedural Meshes Maps
-  private pawnsMap: Map<string, THREE.Mesh> = new Map();
-  private tilesMap: THREE.Mesh[] = [];
+  private pawnsMap: Map<string, THREE.Mesh | THREE.Group> = new Map();
+  private pawnTargetsMap: Map<string, THREE.Vector3> = new Map();
+  private tilesMap: (THREE.Mesh | THREE.Group)[] = [];
   private cardsMap: THREE.Mesh[] = [];
   private avatarsMap: Map<string, THREE.Group> = new Map();
   private tableMesh!: THREE.Mesh;
@@ -365,6 +366,45 @@ export class ThreeRenderer {
       labelMesh.position.set(tx, 0.05, tz);
       this.scene.add(labelMesh);
       this.tilesMap.push(labelMesh);
+
+      // Draw 3D flag ownership markers if owned (only for Monopoly)
+      if (isMonopoly) {
+        const ownerId = state.moduleState.propertiesOwned?.[index];
+        if (ownerId) {
+          const owner = state.players[ownerId];
+          const ownerColor = owner?.color || '#ffffff';
+
+          // Shift flag toward center of the board
+          const len = Math.sqrt(tx * tx + tz * tz);
+          let fx = tx;
+          let fz = tz;
+          if (len > 0.1) {
+            fx = tx - (tx / len) * 0.28;
+            fz = tz - (tz / len) * 0.28;
+          }
+
+          // Generate flagpole flag group
+          const flagGroup = new THREE.Group();
+
+          // Pole cylinder
+          const poleGeom = new THREE.CylinderGeometry(0.015, 0.015, 0.35, 8);
+          const poleMat = new THREE.MeshStandardMaterial({ color: 0xd1d5db, metalness: 0.8, roughness: 0.2 });
+          const poleMesh = new THREE.Mesh(poleGeom, poleMat);
+          poleMesh.position.y = 0.175;
+          flagGroup.add(poleMesh);
+
+          // Flag banner
+          const bannerGeom = new THREE.BoxGeometry(0.18, 0.1, 0.02);
+          const bannerMat = new THREE.MeshStandardMaterial({ color: new THREE.Color(ownerColor), roughness: 0.6 });
+          const bannerMesh = new THREE.Mesh(bannerGeom, bannerMat);
+          bannerMesh.position.set(0.09, 0.28, 0);
+          flagGroup.add(bannerMesh);
+
+          flagGroup.position.set(fx, 0.02, fz);
+          this.scene.add(flagGroup);
+          this.tilesMap.push(flagGroup);
+        }
+      }
     });
 
     // Draw 3D Player pawns
@@ -392,24 +432,33 @@ export class ThreeRenderer {
         tz = extent - step * 1.33;
       }
 
-      // Conic pawn model
-      const pawnGeom = new THREE.ConeGeometry(0.12, 0.45, 16);
-      const pawnMat = new THREE.MeshStandardMaterial({
-        color: state.players[pid].color,
-        roughness: 0.3
-      });
-      const pawnMesh = new THREE.Mesh(pawnGeom, pawnMat);
-      pawnMesh.position.set(tx, 0.25, tz);
-      pawnMesh.castShadow = true;
-      this.scene.add(pawnMesh);
-      this.pawnsMap.set(pid, pawnMesh);
+      // Conic pawn group
+      const targetPos = new THREE.Vector3(tx, 0.02, tz);
+      this.pawnTargetsMap.set(pid, targetPos);
 
-      // Top pawn sphere head
-      const topGeom = new THREE.SphereGeometry(0.08, 8, 8);
-      const topMesh = new THREE.Mesh(topGeom, pawnMat);
-      topMesh.position.set(tx, 0.48, tz);
-      this.scene.add(topMesh);
-      this.tilesMap.push(topMesh);
+      let pawnGroup = this.pawnsMap.get(pid) as any;
+      if (!pawnGroup) {
+        pawnGroup = new THREE.Group();
+
+        const pawnGeom = new THREE.ConeGeometry(0.12, 0.45, 16);
+        const pawnMat = new THREE.MeshStandardMaterial({
+          color: state.players[pid].color,
+          roughness: 0.3
+        });
+        const bodyMesh = new THREE.Mesh(pawnGeom, pawnMat);
+        bodyMesh.position.y = 0.23;
+        bodyMesh.castShadow = true;
+        pawnGroup.add(bodyMesh);
+
+        const topGeom = new THREE.SphereGeometry(0.08, 8, 8);
+        const topMesh = new THREE.Mesh(topGeom, pawnMat);
+        topMesh.position.y = 0.46;
+        pawnGroup.add(topMesh);
+
+        pawnGroup.position.copy(targetPos);
+        this.scene.add(pawnGroup);
+        this.pawnsMap.set(pid, pawnGroup);
+      }
     });
   }
 
@@ -563,8 +612,16 @@ export class ThreeRenderer {
     this.tilesMap.forEach(mesh => this.scene.remove(mesh));
     this.tilesMap = [];
 
-    this.pawnsMap.forEach(mesh => this.scene.remove(mesh));
-    this.pawnsMap.clear();
+    // Remove obsolete pawns whose players left
+    if (this.currentState) {
+      this.pawnsMap.forEach((mesh, pid) => {
+        if (!this.currentState!.players[pid]) {
+          this.scene.remove(mesh);
+          this.pawnsMap.delete(pid);
+          this.pawnTargetsMap.delete(pid);
+        }
+      });
+    }
 
     this.cardsMap.forEach(mesh => this.scene.remove(mesh));
     this.cardsMap = [];
@@ -585,6 +642,14 @@ export class ThreeRenderer {
       this.avatarsMap.forEach((avatarGroup, pid) => {
         const index = Object.keys(this.currentState!.players).indexOf(pid);
         avatarGroup.position.y = Math.sin(timer * 2 + index) * 0.02;
+      });
+
+      // Lerp pawn group positions smoothly towards their current targets
+      this.pawnsMap.forEach((pawnGroup, pid) => {
+        const target = this.pawnTargetsMap.get(pid);
+        if (target) {
+          pawnGroup.position.lerp(target, 0.12);
+        }
       });
     }
 

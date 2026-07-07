@@ -12,6 +12,7 @@ let activeSeatId = 'P1';
 let isReplayMode = false;
 let spectatingPlayerId = 'P1';
 let timerIntervalId: any = null;
+let lastProcessedEventCount = 0;
 
 const REST_URL = 'http://localhost:3000';
 const WS_URL = 'ws://localhost:3000';
@@ -289,6 +290,7 @@ async function initializeSync(
   activeSeatId = playerId;
   isReplayMode = false;
   spectatingPlayerId = 'P1';
+  lastProcessedEventCount = 0;
   if (timerIntervalId !== null) {
     clearInterval(timerIntervalId);
     timerIntervalId = null;
@@ -375,15 +377,53 @@ async function initializeSync(
   // Setup main layout for game session (incorporates 3D canvas viewport)
   if (app) {
     app.innerHTML = `
+      <!-- Column 1: Config & Roster -->
       <div class="sandbox-panel">
         <div class="title-header">
           <h1>Lobby Code: <span style="color: #a855f7;">${lobbyId}</span></h1>
-          <p style="color: var(--text-muted); margin: 0;">Connected seat: <strong style="color: white;">${playerId}</strong> (${isHost ? 'AUTHORITATIVE HOST' : 'PEER'})</p>
+          <p style="color: var(--text-muted); margin: 0;">Seat: <strong style="color: white;">${playerId}</strong> (${isHost ? 'HOST' : 'PEER'})</p>
         </div>
 
         <div id="discord-active-banner" style="display: none;"></div>
+        <div id="spectator-view-banner" style="display: none; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px;"></div>
 
-        <div id="turn-timer-banner" style="background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px; display: none;">
+        <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace;">
+          <strong>RECONNECT KEY:</strong><br>
+          <code style="color: #f43f5e; word-break: break-all;">Lobby: ${lobbyId} | Player: ${playerId} | Hash: ${secretHash}</code>
+        </div>
+
+        <div id="migration-banner" style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); padding: 10px; border-radius: 8px; display: none; color: #facc15; font-weight: bold; font-size: 13px;">
+          ⚠️ Host Disconnected. Migrating authority...
+        </div>
+
+        <div>
+          <h3>Lobby Active Seats</h3>
+          <div id="player-list"></div>
+        </div>
+
+        <!-- Monopoly property owned ledger -->
+        ${activeGame === 'monopoly-go' ? `
+        <div>
+          <h3>Purchased Properties</h3>
+          <div id="monopoly-ledger" style="font-size: 12px; display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--panel-border); max-height: 180px; overflow-y: auto;">No properties owned yet.</div>
+        </div>
+        ` : ''}
+
+        <!-- Discord Pin Box (Host Only) -->
+        ${isHost ? `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
+          <h3 style="margin-top: 0;">Discord Voice Pin (Host)</h3>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="discord-input" placeholder="https://discord.gg/..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px; font-size: 12px;">
+            <button class="action-btn" id="btn-pin-discord" style="padding: 8px 14px; font-size: 12px; margin-right: 0; background: #5865f2;">Pin</button>
+          </div>
+        </div>
+        ` : ''}
+      </div>
+
+      <!-- Column 2: Immersive 3D Tabletop and Control Area -->
+      <div class="sandbox-panel" style="gap: 12px;">
+        <div id="turn-timer-banner" style="background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); padding: 10px; border-radius: 8px; margin-bottom: 4px; display: none;">
           <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #fca5a5;">
             <span>⏱️ Turn Timer Active</span>
             <span id="turn-timer-text">0s left</span>
@@ -393,108 +433,82 @@ async function initializeSync(
           </div>
         </div>
 
-        <div id="spectator-view-banner" style="display: none; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px;"></div>
-
-        <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace;">
-          <strong>RECONNECT KEY:</strong> Copy the below payload to restore session:<br>
-          <code style="color: #f43f5e; word-break: break-all;">Lobby: ${lobbyId} | Player: ${playerId} | Hash: ${secretHash}</code>
-        </div>
-
-        <div id="migration-banner" style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); padding: 10px; border-radius: 8px; display: none; color: #facc15; font-weight: bold; font-size: 13px;">
-          ⚠️ Authoritative Host Disconnected. Migrating hosting authority to next peer...
-        </div>
-
-        <!-- 3D Viewport Zoom Surface -->
         <div>
-          <h3 style="text-transform: capitalize;">3D Tabletop Viewport: ${activeGame.replace('-', ' ')}</h3>
-          <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 6px 0;">Drag screen to rotate table. Scroll to zoom camera angle.</p>
+          <h3 style="text-transform: capitalize; margin: 0 0 4px 0;">3D Tabletop Viewport: ${activeGame.replace(/-/g, ' ')}</h3>
+          <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 8px 0;">Drag to rotate table. Scroll to zoom camera angle.</p>
           
-          <div id="camera-viewport" style="width: 100%; max-width: 360px; height: 360px; margin: 10px auto; border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; background: #0f172a; position: relative;">
+          <div id="camera-viewport" style="width: 100%; height: 420px; border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; background: #0b0f19; position: relative;">
             <div id="three-canvas-container" style="width: 100%; height: 100%;"></div>
           </div>
         </div>
 
         <div>
-          <h3>Lobby Active Seats</h3>
-          <div id="player-list"></div>
-        </div>
-
-        <!-- P2P Lobby Chat -->
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
-          <h3 style="margin-top: 0;">Lobby P2P Chat</h3>
-          <div id="chat-messages" style="height: 130px; overflow-y: auto; background: rgba(0,0,0,0.15); border-radius: 8px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 8px;"></div>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px; font-size: 13px;">
-            <button class="action-btn" id="btn-send-chat" style="padding: 8px 14px; font-size: 13px; margin-right: 0;">Send</button>
-          </div>
-        </div>
-
-        <!-- Discord Pin Box (Host Only) -->
-        ${isHost ? `
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
-          <h3 style="margin-top: 0;">Discord Voice Pin (Host Only)</h3>
-          <div style="display: flex; gap: 8px;">
-            <input type="text" id="discord-input" placeholder="https://discord.gg/..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px; font-size: 12px;">
-            <button class="action-btn" id="btn-pin-discord" style="padding: 8px 14px; font-size: 12px; margin-right: 0; background: #5865f2;">Pin Link</button>
-          </div>
-        </div>
-        ` : ''}
-
-        <!-- Monopoly property owned ledger -->
-        ${activeGame === 'monopoly-go' ? `
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
-          <h3 style="margin-top:0;">Purchased Properties</h3>
-          <div id="monopoly-ledger" style="font-size: 12px; display: flex; flex-direction: column; gap: 4px;">No properties owned yet.</div>
-        </div>
-        ` : ''}
-
-        <div>
-          <h3>Gameplay Actions</h3>
-          
-          <!-- Flick physics throwing pad (Only for Ludo & Monopoly) -->
-          <div id="physics-dice-surface" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; margin-bottom: 12px; text-align: center; ${activeGame === 'uno-go' ? 'display: none;' : ''}">
-            <p style="font-size: 12px; color: var(--text-muted); margin-top: 0;">Drag and FLICK the dice to roll!</p>
+          <!-- Flick physics throwing pad (Only Ludo & Monopoly) -->
+          <div id="physics-dice-surface" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; text-align: center; ${activeGame === 'uno-go' ? 'display: none;' : ''}">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 6px 0;">Drag and FLICK the dice to roll!</p>
             <div class="dice-3d-surface">
               <div id="physical-dice" class="dice-3d">🎲</div>
             </div>
           </div>
 
-          <!-- Card Hand GUI panel (Only for Uno) -->
-          <div id="uno-hand-gui" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; margin-bottom: 12px; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">
-            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0; font-weight: bold;">Your Hand (Play matching card color/value):</p>
+          <!-- Card Hand GUI panel (Only Uno) -->
+          <div id="uno-hand-gui" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0; font-weight: bold;">Your Hand:</p>
             <div id="my-cards-container" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;"></div>
           </div>
 
-          <div id="actions-panel">
-            <button class="action-btn" id="btn-move" disabled style="width: 100%; margin-bottom: 8px; ${activeGame === 'uno-go' ? 'display: none;' : ''}">Move Piece</button>
-            <button class="action-btn" id="btn-resolve" disabled style="width: 100%; margin-bottom: 8px; ${activeGame === 'uno-go' ? 'display: none;' : ''}">Resolve Tile Space</button>
-            
-            <!-- Monopoly Specific HUD Buttons -->
-            <button class="action-btn" id="btn-buy-property" disabled style="width: 100%; margin-bottom: 8px; background-color: #10b981; ${activeGame !== 'monopoly-go' ? 'display: none;' : ''}">Buy Property</button>
-            
-            <!-- Uno Specific HUD Buttons -->
-            <button class="action-btn" id="btn-draw-card" disabled style="width: 100%; margin-bottom: 8px; background-color: #f59e0b; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">Draw Card from Deck</button>
-
-            <button class="action-btn" id="btn-end" disabled style="width: 100%;">End Turn</button>
+          <div id="actions-panel" style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px;">
+            <button class="action-btn" id="btn-move" disabled style="${activeGame === 'uno-go' ? 'display: none;' : ''}">Move Piece</button>
+            <button class="action-btn" id="btn-resolve" disabled style="${activeGame === 'uno-go' ? 'display: none;' : ''}">Resolve Space</button>
+            <button class="action-btn" id="btn-buy-property" disabled style="background-color: #10b981; ${activeGame !== 'monopoly-go' ? 'display: none;' : ''}">Buy Property</button>
+            <button class="action-btn" id="btn-draw-card" disabled style="background-color: #f59e0b; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">Draw Card</button>
+            <button class="action-btn" id="btn-end" disabled>End Turn</button>
           </div>
           <div class="error-toast" id="error-box"></div>
-          <button class="action-btn" id="btn-download-replay" style="margin-top: 14px; background: #0ea5e9; width: 100%;">💾 Download Match Replay File</button>
-          <button class="action-btn" id="btn-exit-game" style="margin-top: 8px; background: #64748b; width: 100%;">🛑 Exit Match to Lobby</button>
+        </div>
+      </div>
+
+      <!-- Column 3: Chat Logs, Event Feeds & Inspectors -->
+      <div class="sandbox-panel" style="gap: 16px;">
+        <!-- P2P Lobby Chat -->
+        <div style="display: flex; flex-direction: column; flex-grow: 1;">
+          <h3 style="margin-top: 0; margin-bottom: 8px;">Lobby Chat</h3>
+          <div id="chat-messages" style="height: 180px; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 8px; flex-grow: 1;"></div>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
+            <button class="action-btn" id="btn-send-chat" style="padding: 10px 16px; font-size: 13px; margin-right: 0;">Send</button>
+          </div>
         </div>
 
         <div>
-          <h3>P2P Match Events</h3>
-          <div class="event-feed" id="event-feed"></div>
+          <h3 style="margin-bottom: 8px;">Match Events</h3>
+          <div class="event-feed" id="event-feed" style="height: 120px;"></div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <h3 style="margin: 0;">Replicated State</h3>
+            <button class="action-btn" id="btn-toggle-inspector" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); margin: 0;">Toggle</button>
+          </div>
+          <div class="state-inspector" id="state-inspector" style="height: 150px; display: none;"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="action-btn" id="btn-download-replay" style="background: #0ea5e9; font-size: 13px; padding: 10px;">💾 Download Replay File</button>
+          <button class="action-btn" id="btn-exit-game" style="background: #475569; font-size: 13px; padding: 10px;">🛑 Exit to Lobby</button>
         </div>
       </div>
 
-      <div class="sandbox-panel">
-        <h3>Live Replicated State Inspector</h3>
-        <div class="state-inspector" id="state-inspector"></div>
+      <!-- Gorgeous Deed Card Modal Overlay -->
+      <div id="property-card-modal" class="modal-overlay">
+        <div class="deed-card" id="deed-card-content"></div>
       </div>
 
+      <!-- Floating notification area -->
+      <div id="floating-notifier" class="floating-notifier"></div>
+
       <!-- Victory Celeb Overlay -->
-      <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15,23,42,0.9); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000;"></div>
+      <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,15,30,0.92); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000000; backdrop-filter: blur(12px);"></div>
     `;
 
     // Instantiate Three.js renderer inside the canvas container
@@ -558,6 +572,13 @@ async function initializeSync(
 
     document.getElementById('btn-end')?.addEventListener('click', () => {
       syncEngine?.dispatch('END_TURN');
+    });
+
+    document.getElementById('btn-toggle-inspector')?.addEventListener('click', () => {
+      const insp = document.getElementById('state-inspector');
+      if (insp) {
+        insp.style.display = insp.style.display === 'none' ? 'block' : 'none';
+      }
     });
 
     document.getElementById('btn-download-replay')?.addEventListener('click', () => {
@@ -832,6 +853,29 @@ function updateUI(gameState: EngineState) {
   const activeGame = gameState.activeModule || 'ludo-go-classic';
   const isSpectator = gameState.players[activeSeatId]?.isSpectator === true;
 
+  // Trigger money badge notifications for newly received event log items
+  if (gameState.eventLog && gameState.eventLog.length > lastProcessedEventCount) {
+    const newEvents = gameState.eventLog.slice(lastProcessedEventCount);
+    newEvents.forEach(evt => {
+      if (evt.playerId === activeSeatId) {
+        if (evt.type === 'SALARY_COLLECTED') {
+          triggerFloatingMoneyAlert(200);
+        } else if (evt.type === 'CHANCE_BONUS') {
+          triggerFloatingMoneyAlert(evt.payload.bonus);
+        } else if (evt.type === 'TAX_PAID') {
+          triggerFloatingMoneyAlert(-evt.payload.amount);
+        } else if (evt.type === 'RENT_PAID') {
+          triggerFloatingMoneyAlert(-evt.payload.rent);
+        } else if (evt.type === 'PROPERTY_BOUGHT') {
+          triggerFloatingMoneyAlert(-evt.payload.cost);
+        }
+      } else if (evt.type === 'RENT_PAID' && evt.payload.ownerId === activeSeatId) {
+        triggerFloatingMoneyAlert(evt.payload.rent);
+      }
+    });
+    lastProcessedEventCount = gameState.eventLog.length;
+  }
+
   // Render Spectator Banner and POV selector
   const specBanner = document.getElementById('spectator-view-banner');
   if (specBanner) {
@@ -867,6 +911,9 @@ function updateUI(gameState: EngineState) {
 
   // Refresh visual turn timer ticker
   refreshVisualTimer(gameState);
+
+  // Refresh floating property deed modal for landed-on unowned properties
+  refreshDeedCardModal(gameState);
 
   // Dynamic DOM panels showing / hiding
   const physicsSurface = document.getElementById('physics-dice-surface');
@@ -1167,6 +1214,96 @@ function triggerAutoTurnAction(state: EngineState) {
   }
 }
 
+function refreshDeedCardModal(gameState: EngineState) {
+  const modal = document.getElementById('property-card-modal');
+  const content = document.getElementById('deed-card-content');
+  if (!modal || !content) return;
+
+  const activeGame = gameState.activeModule || 'ludo-go-classic';
+  if (activeGame !== 'monopoly-go') {
+    modal.classList.remove('active');
+    return;
+  }
+
+  const currPlayerId = gameState.turn.currentPlayerId;
+  const playerPos = gameState.moduleState.playerPositions[currPlayerId] || 0;
+  const tileIdx = playerPos % 16;
+  const tile = monopolyModule.board.tiles[tileIdx];
+
+  const isProperty = tile && tile.type === 'property';
+  const isUnowned = isProperty && !gameState.moduleState.propertiesOwned?.[tileIdx];
+  const showModal = isUnowned && gameState.turn.phase === 'OptionalActions' && !isReplayMode;
+
+  if (!showModal) {
+    modal.classList.remove('active');
+    return;
+  }
+
+  const isMyTurn = currPlayerId === activeSeatId;
+  const color = tile.color || '#3b82f6';
+  const cost = tile.payload?.cost || 100;
+  const rent = tile.payload?.rent || 10;
+
+  content.innerHTML = `
+    <div class="deed-header" style="background-color: ${color};">
+      Title Deed
+    </div>
+    <div class="deed-title">Monopoly Go Lite</div>
+    <div class="deed-name">${tile.name}</div>
+    
+    <div style="margin: 12px 0;">
+      <div class="deed-rent-row">
+        <span>Rent</span>
+        <strong>$${rent}</strong>
+      </div>
+      <div class="deed-rent-row">
+        <span>With 1 House</span>
+        <span>$${rent * 3}</span>
+      </div>
+      <div class="deed-rent-row">
+        <span>With 2 Houses</span>
+        <span>$${rent * 8}</span>
+      </div>
+      <div class="deed-rent-row">
+        <span>Mortgage Value</span>
+        <span>$${cost / 2}</span>
+      </div>
+    </div>
+
+    <div class="deed-price-info">
+      Purchase Price: $${cost}
+    </div>
+
+    <div style="margin-top: 16px; display: flex; gap: 8px; justify-content: center;">
+      ${isMyTurn ? `
+        <button class="action-btn" id="modal-buy-confirm" style="background: #10b981; padding: 8px 16px; margin: 0; font-size: 13px;">Buy Property</button>
+        <button class="action-btn" id="modal-buy-decline" style="background: #ef4444; padding: 8px 16px; margin: 0; font-size: 13px;">Decline</button>
+      ` : `
+        <div style="font-size: 12px; color: var(--text-muted); font-style: italic; text-align: center; width: 100%;">
+          Waiting for Player ${currPlayerId === 'P1' ? '1' : currPlayerId} to purchase...
+        </div>
+      `}
+    </div>
+  `;
+
+  modal.classList.add('active');
+
+  if (isMyTurn) {
+    // Force click binding
+    const confirmBtn = document.getElementById('modal-buy-confirm');
+    const declineBtn = document.getElementById('modal-buy-decline');
+
+    confirmBtn?.addEventListener('click', () => {
+      syncEngine?.dispatch('BUY_PROPERTY');
+      modal.classList.remove('active');
+    });
+
+    declineBtn?.addEventListener('click', () => {
+      modal.classList.remove('active');
+    });
+  }
+}
+
 // Global Custom cursor overlay binding
 let handCursor = document.getElementById('hand-cursor');
 if (!handCursor) {
@@ -1261,6 +1398,28 @@ document.addEventListener('mouseover', (e) => {
     }
   }
 });
+
+function triggerFloatingMoneyAlert(amount: number) {
+  const container = document.getElementById('floating-notifier');
+  if (!container) return;
+
+  const badge = document.createElement('div');
+  badge.className = 'money-badge';
+  
+  if (amount >= 0) {
+    badge.style.background = 'linear-gradient(135deg, #10b981 0%, #059669 100%)';
+    badge.innerHTML = `💵 +$${amount}`;
+  } else {
+    badge.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+    badge.innerHTML = `💸 -$${Math.abs(amount)}`;
+  }
+
+  container.appendChild(badge);
+
+  setTimeout(() => {
+    badge.remove();
+  }, 2000);
+}
 
 // Initial matchmaking render
 renderMatchmaking();
