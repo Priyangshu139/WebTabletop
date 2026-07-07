@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "node --loader ts-node/esm src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "start": "node --max-old-space-size=64 dist/server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
