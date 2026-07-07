@@ -784,6 +784,21 @@ function getUnoColorHex(color: string): string {
 function updateUI(gameState: EngineState) {
   const activeGame = gameState.activeModule || 'ludo-go-classic';
 
+  // Dynamic DOM panels showing / hiding
+  const physicsSurface = document.getElementById('physics-dice-surface');
+  const unoHandGui = document.getElementById('uno-hand-gui');
+  const moveBtn = document.getElementById('btn-move');
+  const resolveBtn = document.getElementById('btn-resolve');
+  const buyBtn = document.getElementById('btn-buy-property');
+  const drawBtn = document.getElementById('btn-draw-card');
+
+  if (physicsSurface) physicsSurface.style.display = activeGame === 'uno-go' ? 'none' : 'block';
+  if (unoHandGui) unoHandGui.style.display = activeGame === 'uno-go' ? 'block' : 'none';
+  if (moveBtn) moveBtn.style.display = activeGame === 'uno-go' ? 'none' : 'block';
+  if (resolveBtn) resolveBtn.style.display = activeGame === 'uno-go' ? 'none' : 'block';
+  if (buyBtn) buyBtn.style.display = activeGame === 'monopoly-go' ? 'block' : 'none';
+  if (drawBtn) drawBtn.style.display = activeGame === 'uno-go' ? 'block' : 'none';
+
   // 1. Notify 3D WebGL renderer to update meshes dynamically
   if (threeRenderer) {
     threeRenderer.updateState(gameState);

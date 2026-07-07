@@ -57,6 +57,9 @@ export class SyncEngine {
     if (!this.isHost) {
       // Connect directly to host P1 over WebRTC
       await this.webrtcManager.initiatePeerConnection('P1');
+    } else {
+      // Authoritative host saves initial state representation
+      await this.saveStateToBackend();
     }
   }
 
