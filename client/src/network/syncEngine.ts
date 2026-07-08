@@ -110,9 +110,16 @@ export class SyncEngine {
         }
       } else if (data.type === 'CHAT') {
         if (this.isHost) {
+          // Host stores and re-broadcasts to all peers
           this.chatHistory.push(data.chat);
           if (this.chatHistory.length > 50) this.chatHistory.shift();
           this.webrtcManager.broadcast({ type: 'CHAT', chat: data.chat });
+        } else {
+          // Peer receives relayed chat — skip if already in history (own echo)
+          if (!this.chatHistory.find(c => c.id === data.chat.id)) {
+            this.chatHistory.push(data.chat);
+            if (this.chatHistory.length > 50) this.chatHistory.shift();
+          }
         }
         this.onChatReceived?.(data.chat);
       } else if (data.type === 'ERROR') {
@@ -281,17 +288,16 @@ export class SyncEngine {
       timestamp: Date.now()
     };
 
-    if (this.isHost) {
-      this.chatHistory.push(chat);
-      if (this.chatHistory.length > 50) this.chatHistory.shift();
+    // Store locally and show immediately for ALL players
+    this.chatHistory.push(chat);
+    if (this.chatHistory.length > 50) this.chatHistory.shift();
+    this.onChatReceived?.(chat);
+
+    // Send over the network
+    try {
       this.webrtcManager.broadcast({ type: 'CHAT', chat });
-      this.onChatReceived?.(chat);
-    } else {
-      try {
-        this.webrtcManager.broadcast({ type: 'CHAT', chat });
-      } catch (err: any) {
-        console.error('Failed to send chat over P2P:', err);
-      }
+    } catch (err: any) {
+      console.error('Failed to send chat over P2P:', err);
     }
   }
 
