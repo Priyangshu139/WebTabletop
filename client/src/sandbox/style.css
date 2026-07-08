@@ -590,7 +590,9 @@ body {
   right: -360px; /* Hidden offscreen by default */
   width: 340px;
   height: 100vh;
-  background-color: var(--sidebar-bg);
+  background-color: rgba(15, 19, 28, 0.82);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-left: 1px solid var(--panel-border);
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.55);
   transition: right 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
@@ -603,6 +605,56 @@ body {
 
 .chat-drawer.active {
   right: 0; /* Slide in! */
+}
+
+/* Chat Input Focus Ring & Button */
+.chat-drawer input:focus, #chat-input:focus {
+  outline: none;
+  border-color: #8b5cf6 !important;
+  box-shadow: 0 0 10px rgba(139, 92, 246, 0.4);
+  transition: all 0.2s ease;
+}
+
+/* Hover effects for rosters */
+.player-list-row {
+  transition: all 0.2s ease !important;
+}
+.player-list-row:hover {
+  border-color: rgba(168, 85, 247, 0.3) !important;
+  background: rgba(168, 85, 247, 0.04) !important;
+  transform: translateY(-1px);
+}
+
+/* Alternating rules background tint */
+.rules-table-row:nth-child(odd) {
+  background: rgba(255, 255, 255, 0.015);
+  border-radius: 4px;
+}
+
+/* Pulsing Green Dot */
+.pulse-green-dot {
+  width: 7px;
+  height: 7px;
+  background-color: #22c55e;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  animation: pulse-dot 1.6s infinite;
+}
+
+@keyframes pulse-dot {
+  0% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7);
+  }
+  70% {
+    transform: scale(1);
+    box-shadow: 0 0 0 5px rgba(34, 197, 94, 0);
+  }
+  100% {
+    transform: scale(0.95);
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0);
+  }
 }
 
 /* Chat drawer toggle button on the right edge */

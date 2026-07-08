@@ -351,22 +351,37 @@ function renderChatHistory(gameState: EngineState) {
 
   // Header pinned section
   let pinnedHtml = '';
-  if (gameState.pinnedChat) {
-    const senderColor = gameState.players[gameState.pinnedChat.senderId]?.color || '#ffffff';
+  if (gameState.pinnedChats && gameState.pinnedChats.length > 0) {
+    const pinsHtml = gameState.pinnedChats.map(pin => {
+      const senderColor = gameState.players[pin.senderId]?.color || '#ffffff';
+      return `
+        <div style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.25); border-left: 3px solid #facc15; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(234,179,8,0.05);">
+          <div style="display: flex; align-items: center; flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+            <span style="font-size: 11px; margin-right: 6px; cursor: default;">📌</span>
+            <span style="background-color: ${pin.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-right: 4px;">${pin.senderEmoji}</span>
+            <strong style="color: ${senderColor}; margin-right: 4px;">${pin.senderId === activeSeatId ? 'You' : pin.senderId}</strong>: 
+            <span style="color: #fef08a; overflow: hidden; text-overflow: ellipsis;">${pin.text}</span>
+          </div>
+          ${isMyHost ? `
+            <button class="btn-unpin-chat-msg" data-chat-id="${pin.id}" style="background: transparent; border: none; color: #ca8a04; cursor: pointer; font-size: 11px; padding: 2px 6px; margin: 0; line-height: 1; font-weight: bold;" title="Unpin Message">✕</button>
+          ` : ''}
+        </div>
+      `;
+    }).join('');
+    
     pinnedHtml = `
-      <div style="background: rgba(234,179,8,0.12); border: 1px solid rgba(234,179,8,0.4); border-radius: 8px; padding: 8px; margin-bottom: 12px; font-size: 12px; border-left: 3px solid #facc15;">
-        <div style="color: #facc15; font-weight: bold; margin-bottom: 2px; font-size: 10px; display: flex; align-items: center; gap: 4px;">📌 PINNED BY HOST</div>
-        <span style="background-color: ${gameState.pinnedChat.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-right: 4px;">${gameState.pinnedChat.senderEmoji}</span>
-        <strong style="color: ${senderColor};">${gameState.pinnedChat.senderId === activeSeatId ? 'You' : gameState.pinnedChat.senderId}</strong>: ${gameState.pinnedChat.text}
+      <div style="margin-bottom: 12px; border-bottom: 1px dashed rgba(234,179,8,0.3); padding-bottom: 8px;">
+        <div style="color: #facc15; font-weight: bold; margin-bottom: 6px; font-size: 10px; display: flex; align-items: center; gap: 4px; letter-spacing: 0.5px; text-transform: uppercase;">📌 Pinned Messages (Max 3)</div>
+        ${pinsHtml}
       </div>
     `;
   }
 
   const historyHtml = syncEngine.chatHistory.map(m => {
     const playerColor = gameState.players[m.senderId]?.color || '#ffffff';
-    const isPinned = gameState.pinnedChat && gameState.pinnedChat.id === m.id;
+    const isPinned = gameState.pinnedChats && gameState.pinnedChats.some(c => c.id === m.id);
     return `
-      <div style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: ${isPinned ? 'rgba(234,179,8,0.06)' : 'transparent'}; padding: 4px; border-radius: 6px;">
+      <div style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: ${isPinned ? 'rgba(234,179,8,0.04)' : 'transparent'}; padding: 4px; border-radius: 6px;">
         <div style="font-size: 13px;">
           <span style="background-color: ${m.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-right: 4px;">${m.senderEmoji}</span>
           <strong style="color: ${playerColor};">${m.senderId === activeSeatId ? 'You' : m.senderId}</strong>: ${m.text}
@@ -388,6 +403,16 @@ function renderChatHistory(gameState: EngineState) {
       const chatMsg = syncEngine?.chatHistory.find(c => c.id === chatId);
       if (chatMsg) {
         syncEngine?.dispatch('PIN_CHAT', { chat: chatMsg });
+      }
+    });
+  });
+
+  // Bind unpin buttons
+  messagesEl.querySelectorAll('.btn-unpin-chat-msg').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const chatId = (e.currentTarget as HTMLElement).getAttribute('data-chat-id');
+      if (chatId) {
+        syncEngine?.dispatch('UNPIN_CHAT', { chatId });
       }
     });
   });
@@ -520,10 +545,6 @@ async function initializeSync(
           </div>
         </div>
 
-        <div style="background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 10px; padding: 12px; margin-top: 10px; margin-bottom: 10px; text-align: center; width: 100%;">
-          <div style="color: #c084fc; font-weight: bold; font-size: 11px; margin-bottom: 2px;">⚡ CONNECTED TO LOBBY</div>
-          <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">Room: ${lobbyId}</div>
-        </div>
 
         <div class="sidebar-bottom-links">
           <div class="sidebar-link-item">⚙️ Settings</div>
@@ -1769,8 +1790,10 @@ function renderLobbyRoom(gameState: EngineState) {
         <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 14px;">
           <div class="code-panel">
             <div>
-              <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; margin-bottom: 2px;">LOBBY CODE</div>
-              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px; color: #a855f7;">${lobbyId}</h1>
+              <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                <span class="pulse-green-dot"></span> LOBBY CODE
+              </div>
+              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px; color: #c084fc; text-shadow: 0 0 10px rgba(168,85,247,0.4);">${lobbyId}</h1>
             </div>
             <button class="action-btn" id="btn-copy-code" style="padding: 8px 12px; margin: 0; background: #121722; font-size: 14px;">📋 Copy</button>
           </div>
@@ -1795,7 +1818,7 @@ function renderLobbyRoom(gameState: EngineState) {
                 <div class="player-list-info" style="display: flex; align-items: center; gap: 10px;">
                   <div class="player-pawn-circle" style="background-color: ${p.color}; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);"></div>
                   <span class="player-list-name" style="font-size: 13px; font-weight: 500;">
-                    ${p.emojiFace} Player ${pid.substring(1)} ${p.isHost ? '👑' : ''} ${isMe ? '(You)' : ''}
+                    ${p.emojiFace} Player ${pid.substring(1)} ${p.isHost ? '<span style="text-shadow: 0 0 8px #eab308; color: #fbbf24; margin-left: 2px;">👑</span>' : ''} ${isMe ? '(You)' : ''}
                   </span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">

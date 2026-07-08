@@ -27,9 +27,27 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       break;
     }
 
-    case 'CHAT_PINNED':
-      nextState.pinnedChat = event.payload.chat;
+    case 'CHAT_PINNED': {
+      if (!nextState.pinnedChats) {
+        nextState.pinnedChats = [];
+      }
+      // Deduplicate
+      if (!nextState.pinnedChats.find(c => c.id === event.payload.chat.id)) {
+        nextState.pinnedChats.push(event.payload.chat);
+        // Keep at most 3 pinned chats, remove oldest (first item)
+        if (nextState.pinnedChats.length > 3) {
+          nextState.pinnedChats.shift();
+        }
+      }
       break;
+    }
+
+    case 'CHAT_UNPINNED': {
+      if (nextState.pinnedChats) {
+        nextState.pinnedChats = nextState.pinnedChats.filter(c => c.id !== event.payload.chatId);
+      }
+      break;
+    }
 
     case 'SPECTATOR_ROLE_TOGGLED': {
       const p = nextState.players[event.playerId!];

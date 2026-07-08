@@ -173,15 +173,49 @@ describe('Pure State Reducer', () => {
     state = applyEvent(state, toggleEvent);
     expect(state.players['P1'].isSpectator).toBe(false);
 
-    // Pin Chat
-    const chatMsg = { id: 'chat-1', senderId: 'P1', text: 'Hello World' };
-    const pinEvent: EngineEvent = {
+    // Pin Chats (multiple, max 3, unpinning)
+    const chatMsg1 = { id: 'chat-1', senderId: 'P1', text: 'Hello World 1' };
+    state = applyEvent(state, {
       type: 'CHAT_PINNED',
       playerId: 'P1',
-      payload: { chat: chatMsg },
+      payload: { chat: chatMsg1 },
       timestamp: 4003
-    };
-    state = applyEvent(state, pinEvent);
-    expect(state.pinnedChat).toEqual(chatMsg);
+    });
+    expect(state.pinnedChats).toContainEqual(chatMsg1);
+
+    // Pin second and third
+    state = applyEvent(state, {
+      type: 'CHAT_PINNED',
+      playerId: 'P1',
+      payload: { chat: { id: 'chat-2', senderId: 'P1', text: 'Hello 2' } },
+      timestamp: 4004
+    });
+    state = applyEvent(state, {
+      type: 'CHAT_PINNED',
+      playerId: 'P1',
+      payload: { chat: { id: 'chat-3', senderId: 'P1', text: 'Hello 3' } },
+      timestamp: 4005
+    });
+    expect(state.pinnedChats?.length).toBe(3);
+
+    // Pin fourth (shifts oldest out)
+    state = applyEvent(state, {
+      type: 'CHAT_PINNED',
+      playerId: 'P1',
+      payload: { chat: { id: 'chat-4', senderId: 'P1', text: 'Hello 4' } },
+      timestamp: 4006
+    });
+    expect(state.pinnedChats?.length).toBe(3);
+    expect(state.pinnedChats?.some(c => c.id === 'chat-1')).toBe(false); // shifted out!
+
+    // Unpin chat-2
+    state = applyEvent(state, {
+      type: 'CHAT_UNPINNED',
+      playerId: 'P1',
+      payload: { chatId: 'chat-2' },
+      timestamp: 4007
+    });
+    expect(state.pinnedChats?.length).toBe(2);
+    expect(state.pinnedChats?.some(c => c.id === 'chat-2')).toBe(false);
   });
 });

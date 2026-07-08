@@ -60,10 +60,25 @@ export function validateCommand(
       if (!player?.isHost) {
         throw new Error('Only the host can pin messages.');
       }
+      const alreadyPinned = state.pinnedChats?.some(c => c.id === command.payload.chat?.id);
+      if (alreadyPinned) {
+        throw new Error('Message is already pinned.');
+      }
       return [{
         type: 'CHAT_PINNED',
         playerId: command.playerId,
         payload: { chat: command.payload.chat },
+        timestamp: Date.now()
+      }];
+    }
+    if (command.type === 'UNPIN_CHAT') {
+      if (!player?.isHost) {
+        throw new Error('Only the host can unpin messages.');
+      }
+      return [{
+        type: 'CHAT_UNPINNED',
+        playerId: command.playerId,
+        payload: { chatId: command.payload.chatId },
         timestamp: Date.now()
       }];
     }
