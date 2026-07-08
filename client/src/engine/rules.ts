@@ -8,9 +8,9 @@ export function validateCommand(
   command: EngineCommand,
   prng: PRNG
 ): EngineEvent[] {
-  // Spectator enforcement
+  // Spectator enforcement (exempt role toggle command)
   const player = state.players[command.playerId];
-  if (player && player.isSpectator) {
+  if (player && player.isSpectator && command.type !== 'TOGGLE_SPECTATOR_ROLE') {
     throw new Error('Spectators cannot take actions.');
   }
 

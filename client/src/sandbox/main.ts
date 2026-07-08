@@ -1825,12 +1825,12 @@ function renderLobbyRoom(gameState: EngineState) {
                   </span>
                 </div>
                 <div style="display: flex; align-items: center; gap: 8px;">
-                  <span class="player-list-ready" style="font-size: 11px; color: ${p.isSpectator ? '#94a3b8' : 'var(--ready-green)'}; font-weight: bold;">
-                    ${p.isSpectator ? 'Spectating' : 'Playing'}
+                  <span class="player-list-ready" style="font-size: 11px; color: ${p.isSpectator ? '#94a3b8' : 'var(--ready-green)'}; font-weight: bold; display: flex; align-items: center; gap: 4px;">
+                    ${p.isSpectator ? '👁️ Spectating' : '🎮 Playing'}
                   </span>
                   ${isMe ? `
-                    <button class="action-btn" id="btn-toggle-my-role" style="padding: 4px 8px; font-size: 11px; margin: 0; background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #60a5fa; cursor: pointer;">
-                      ${p.isSpectator ? 'Play' : 'Spectate'}
+                    <button class="action-btn" id="btn-toggle-my-role" style="padding: 4px 8px; font-size: 11px; margin: 0; background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #60a5fa; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+                      ${p.isSpectator ? '🎮 Play' : '👁️ Spectate'}
                     </button>
                   ` : ''}
                 </div>
