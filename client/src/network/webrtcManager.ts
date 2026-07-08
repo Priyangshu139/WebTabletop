@@ -62,7 +62,11 @@ export class WebRTCManager {
     });
 
     return new Promise((resolve) => {
+      // IMPORTANT: setupDataChannel already set onmessage/onclose/onerror,
+      // but did NOT set onopen. We set it here to both resolve the promise
+      // AND fire the onPeerConnected callback.
       channel.onopen = () => {
+        this.onPeerConnected?.(hostId);
         resolve(channel);
       };
     });

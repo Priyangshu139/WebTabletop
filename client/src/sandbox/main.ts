@@ -485,8 +485,11 @@ async function initializeSync(
     }
   }
 
-  // Add ourselves to players table dynamically if not present
-  if (!initialState.players[playerId]) {
+  // Add ourselves to players table dynamically if not present.
+  // ONLY the host pre-adds itself. Non-host players are added by the host's
+  // PLAYER_JOINED event (which runs through the reducer's color conflict resolver)
+  // and then delivered via SYNC_STATE.
+  if (isHost && !initialState.players[playerId]) {
     initialState.players[playerId] = {
       id: playerId,
       color: playerTraits.color,
