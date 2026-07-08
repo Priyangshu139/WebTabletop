@@ -40,6 +40,7 @@ function saveAvatarTraits() {
 function renderMatchmaking() {
   if (!app) return;
   isReplayMode = false;
+  app.style.gridTemplateColumns = '280px 1fr';
   
   if (replayEngine) {
     replayEngine.destroy();
@@ -148,6 +149,8 @@ function renderMatchmaking() {
   // Bind Sidebar and welcome setup listeners
   document.getElementById('sidebar-btn-create')?.addEventListener('click', async () => {
     showError('');
+    const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
+    if (actionsContainer) actionsContainer.style.display = 'none';
     const userTraits = getSavedAvatar();
     try {
       const res = await fetch(`${REST_URL}/api/lobby/create`, {
@@ -159,10 +162,13 @@ function renderMatchmaking() {
       initializeSync(data.lobbyId, data.playerId, data.secretHash, true, undefined, userTraits);
     } catch (err: any) {
       showError(`Failed to create lobby: ${err.message}`);
+      if (actionsContainer) actionsContainer.style.display = 'block';
     }
   });
 
   document.getElementById('sidebar-btn-join')?.addEventListener('click', () => {
+    const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
+    if (actionsContainer) actionsContainer.style.display = 'none';
     renderJoinCodePane();
   });
 
@@ -350,23 +356,23 @@ function renderChatHistory(gameState: EngineState) {
     const pinsHtml = gameState.pinnedChats.map(pin => {
       const senderColor = gameState.players[pin.senderId]?.color || '#ffffff';
       return `
-        <div style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.25); border-left: 3px solid #facc15; border-radius: 6px; padding: 6px 10px; margin-bottom: 6px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 2px 6px rgba(234,179,8,0.05);">
+        <div style="background: rgba(255, 255, 255, 0.06); border: 1.5px solid #ffffff; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);">
           <div style="display: flex; align-items: center; flex-grow: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
             <span style="font-size: 11px; margin-right: 6px; cursor: default;">📌</span>
             <span style="background-color: ${pin.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 16px; height: 16px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-right: 4px;">${pin.senderEmoji}</span>
             <strong style="color: ${senderColor}; margin-right: 4px;">${pin.senderId === activeSeatId ? 'You' : pin.senderId}</strong>: 
-            <span style="color: #fef08a; overflow: hidden; text-overflow: ellipsis;">${pin.text}</span>
+            <span style="color: #ffffff; overflow: hidden; text-overflow: ellipsis; font-weight: 500;">${pin.text}</span>
           </div>
           ${isMyHost ? `
-            <button class="btn-unpin-chat-msg" data-chat-id="${pin.id}" style="background: transparent; border: none; color: #ca8a04; cursor: pointer; font-size: 11px; padding: 2px 6px; margin: 0; line-height: 1; font-weight: bold;" title="Unpin Message">✕</button>
+            <button class="btn-unpin-chat-msg" data-chat-id="${pin.id}" style="background: transparent; border: none; color: #94a3b8; cursor: pointer; font-size: 12px; padding: 2px 6px; margin: 0; line-height: 1; font-weight: bold; transition: color 0.2s;" onmouseover="this.style.color='white'" onmouseout="this.style.color='#94a3b8'" title="Unpin Message">✕</button>
           ` : ''}
         </div>
       `;
     }).join('');
     
     pinnedHtml = `
-      <div style="margin-bottom: 12px; border-bottom: 1px dashed rgba(234,179,8,0.3); padding-bottom: 8px;">
-        <div style="color: #facc15; font-weight: bold; margin-bottom: 6px; font-size: 10px; display: flex; align-items: center; gap: 4px; letter-spacing: 0.5px; text-transform: uppercase;">📌 Pinned Messages (Max 3)</div>
+      <div style="margin-bottom: 12px; border-bottom: 1px dashed rgba(255, 255, 255, 0.15); padding-bottom: 8px;">
+        <div style="color: #ffffff; font-weight: bold; margin-bottom: 6px; font-size: 10px; display: flex; align-items: center; gap: 4px; letter-spacing: 0.5px; text-transform: uppercase;">📌 Pinned Messages (Max 3)</div>
         ${pinsHtml}
       </div>
     `;
@@ -376,7 +382,7 @@ function renderChatHistory(gameState: EngineState) {
     const playerColor = gameState.players[m.senderId]?.color || '#ffffff';
     const isPinned = gameState.pinnedChats && gameState.pinnedChats.some(c => c.id === m.id);
     return `
-      <div style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: transparent; padding: 4px; border-radius: 6px;">
+      <div style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: ${isPinned ? 'rgba(255,255,255,0.04)' : 'transparent'}; padding: 4px; border-radius: 6px;">
         <div style="font-size: 13px;">
           <span style="background-color: ${m.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-right: 4px;">${m.senderEmoji}</span>
           <strong style="color: ${playerColor};">${m.senderId === activeSeatId ? 'You' : m.senderId}</strong>: ${m.text}
@@ -525,59 +531,14 @@ async function initializeSync(
     }
   }
 
-  // Setup main layout for game session (persistent left sidebar + main content display pane)
+  // Setup main layout for game session (full-width viewport, sidebar disappears)
   if (app) {
+    app.style.gridTemplateColumns = '1fr';
     app.innerHTML = `
-      <!-- Persistent Left Sidebar -->
-      <div class="lobby-sidebar">
-        <div class="sidebar-logo">
-          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c.83 0 1.5.67 1.5 1.5S12.83 9 12 9s-1.5-.67-1.5-1.5S11.17 6 12 6zm-4 4c.83 0 1.5.67 1.5 1.5S8.83 13 8 13s-1.5-.67-1.5-1.5S7.17 10 8 10zm0 6c.83 0 1.5.67 1.5 1.5S8.83 19 8 19s-1.5-.67-1.5-1.5S7.17 16 8 16zm8-3c.83 0 1.5.67 1.5 1.5S16.83 16 16 16s-1.5-.67-1.5-1.5S15.17 13 16 13zm0-6c.83 0 1.5.67 1.5 1.5S16.83 9 16 9s-1.5-.67-1.5-1.5S15.17 6 16 6z"/>
-          </svg>
-          <div class="sidebar-logo-text">
-            <h2>TABLETOP</h2>
-            <p>Play Together</p>
-          </div>
-        </div>
-
-        <!-- Persistent Lobby Info Card in Sidebar -->
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 14px; margin-top: 10px; width: 100%;">
-          <div class="code-panel" style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-              <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
-                <span class="pulse-green-dot"></span> LOBBY CODE
-              </div>
-              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px; color: #c084fc; text-shadow: 0 0 10px rgba(168,85,247,0.4);">${lobbyId}</h1>
-            </div>
-            <button class="action-btn" id="sidebar-btn-copy-code" style="padding: 8px 12px; margin: 0; background: #121722; font-size: 14px;">📋 Copy</button>
-          </div>
-          <div style="margin-top: 12px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 8px;">
-            <div style="color: var(--text-muted); margin-bottom: 2px;">LOBBY LINK</div>
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 6px;">
-              <span style="color: #60a5fa; font-weight: bold; font-family: monospace; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 140px;">tbl.top/join/${lobbyId}</span>
-              <button class="action-btn" id="sidebar-btn-copy-link" style="padding: 4px 8px; margin: 0; font-size: 11px; background: #121722;">Copy</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="sidebar-bottom-links">
-          <div class="sidebar-link-item">⚙️ Settings</div>
-          <div class="sidebar-link-item">ℹ️ About</div>
-        </div>
-      </div>
-
-      <div class="lobby-main-display" id="lobby-main-content">
+      <div class="lobby-main-display" id="lobby-main-content" style="width: 100vw; height: 100vh;">
         <div style="margin: auto; font-size: 16px; font-weight: bold; color: var(--text-muted);">Syncing P2P channels...</div>
       </div>
     `;
-
-    document.getElementById('sidebar-btn-copy-code')?.addEventListener('click', () => {
-      navigator.clipboard.writeText(lobbyId);
-      triggerFloatingMoneyAlert(100);
-    });
-    document.getElementById('sidebar-btn-copy-link')?.addEventListener('click', () => {
-      navigator.clipboard.writeText(`http://${window.location.host}/join/${lobbyId}`);
-    });
 
     // Inject game content into the main display pane after layout is ready
     const mainContent = document.getElementById('lobby-main-content');
@@ -1792,6 +1753,7 @@ function renderLobbyRoom(gameState: EngineState) {
   mainContent.style.justifyContent = 'center';
   mainContent.style.alignItems = 'flex-start';
   
+  const lobbyId = syncEngine?.lobbyId || 'LOBBY';
   const currPlayerId = activeSeatId;
   const isMyHost = gameState.players[currPlayerId]?.isHost === true;
   const selectedGame = gameState.selectedGame || 'ludo-go-classic';
@@ -1806,6 +1768,27 @@ function renderLobbyRoom(gameState: EngineState) {
   mainContent.innerHTML = `
     <!-- Panel 1: Lobby Info & Players Roster -->
     <div class="sandbox-panel" style="width: 360px; flex-shrink: 0; min-height: 520px; display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <h3 style="margin-top: 0; margin-bottom: 8px;">Lobby Details</h3>
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 14px;">
+          <div class="code-panel">
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+                <span class="pulse-green-dot"></span> LOBBY CODE
+              </div>
+              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px; color: #c084fc; text-shadow: 0 0 10px rgba(168,85,247,0.4);">${lobbyId}</h1>
+            </div>
+            <button class="action-btn" id="btn-copy-code" style="padding: 8px 12px; margin: 0; background: #121722; font-size: 14px;">📋 Copy</button>
+          </div>
+          <div style="margin-top: 12px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 8px;">
+            <div style="color: var(--text-muted); margin-bottom: 2px;">LOBBY LINK</div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: #60a5fa; font-weight: bold; font-family: monospace;">tbl.top/join/${lobbyId}</span>
+              <button class="action-btn" id="btn-copy-link" style="padding: 4px 8px; margin: 0; font-size: 11px; background: #121722;">Copy</button>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div>
         <h3 style="margin-bottom: 8px;">Active Seats (${Object.keys(gameState.players).length}/8)</h3>
@@ -1986,6 +1969,13 @@ function renderLobbyRoom(gameState: EngineState) {
   `;
 
   // Bind lobby buttons
+  document.getElementById('btn-copy-code')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(lobbyId);
+    triggerFloatingMoneyAlert(100);
+  });
+  document.getElementById('btn-copy-link')?.addEventListener('click', () => {
+    navigator.clipboard.writeText(`http://${window.location.host}/join/${lobbyId}`);
+  });
 
   document.getElementById('btn-toggle-my-role')?.addEventListener('click', () => {
     syncEngine?.dispatch('TOGGLE_SPECTATOR_ROLE');
