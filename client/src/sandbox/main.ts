@@ -148,8 +148,6 @@ function renderMatchmaking() {
   // Bind Sidebar and welcome setup listeners
   document.getElementById('sidebar-btn-create')?.addEventListener('click', async () => {
     showError('');
-    const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
-    if (actionsContainer) actionsContainer.style.display = 'none';
     const userTraits = getSavedAvatar();
     try {
       const res = await fetch(`${REST_URL}/api/lobby/create`, {
@@ -161,13 +159,10 @@ function renderMatchmaking() {
       initializeSync(data.lobbyId, data.playerId, data.secretHash, true, undefined, userTraits);
     } catch (err: any) {
       showError(`Failed to create lobby: ${err.message}`);
-      if (actionsContainer) actionsContainer.style.display = 'block';
     }
   });
 
   document.getElementById('sidebar-btn-join')?.addEventListener('click', () => {
-    const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
-    if (actionsContainer) actionsContainer.style.display = 'none';
     renderJoinCodePane();
   });
 
