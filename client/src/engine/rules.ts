@@ -56,43 +56,45 @@ export function validateCommand(
         timestamp: Date.now()
       }];
     }
-    if (command.type === 'PIN_CHAT') {
-      if (!player?.isHost) {
-        throw new Error('Only the host can pin messages.');
-      }
-      const alreadyPinned = state.pinnedChats?.some(c => c.id === command.payload.chat?.id);
-      if (alreadyPinned) {
-        throw new Error('Message is already pinned.');
-      }
-      return [{
-        type: 'CHAT_PINNED',
-        playerId: command.playerId,
-        payload: { chat: command.payload.chat },
-        timestamp: Date.now()
-      }];
-    }
-    if (command.type === 'UNPIN_CHAT') {
-      if (!player?.isHost) {
-        throw new Error('Only the host can unpin messages.');
-      }
-      return [{
-        type: 'CHAT_UNPINNED',
-        playerId: command.playerId,
-        payload: { chatId: command.payload.chatId },
-        timestamp: Date.now()
-      }];
-    }
-    if (command.type === 'TOGGLE_SPECTATOR_ROLE') {
-      return [{
-        type: 'SPECTATOR_ROLE_TOGGLED',
-        playerId: command.playerId,
-        timestamp: Date.now()
-      }];
-    }
   }
 
-  // Turn enforcement (exempt PIN_DISCORD command)
-  if (command.type !== 'PIN_DISCORD' && state.turn.currentPlayerId !== command.playerId) {
+  if (command.type === 'PIN_CHAT') {
+    if (!player?.isHost) {
+      throw new Error('Only the host can pin messages.');
+    }
+    const alreadyPinned = state.pinnedChats?.some(c => c.id === command.payload.chat?.id);
+    if (alreadyPinned) {
+      throw new Error('Message is already pinned.');
+    }
+    return [{
+      type: 'CHAT_PINNED',
+      playerId: command.playerId,
+      payload: { chat: command.payload.chat },
+      timestamp: Date.now()
+    }];
+  }
+  if (command.type === 'UNPIN_CHAT') {
+    if (!player?.isHost) {
+      throw new Error('Only the host can unpin messages.');
+    }
+    return [{
+      type: 'CHAT_UNPINNED',
+      playerId: command.playerId,
+      payload: { chatId: command.payload.chatId },
+      timestamp: Date.now()
+    }];
+  }
+  if (command.type === 'TOGGLE_SPECTATOR_ROLE') {
+    return [{
+      type: 'SPECTATOR_ROLE_TOGGLED',
+      playerId: command.playerId,
+      timestamp: Date.now()
+    }];
+  }
+
+  // Turn enforcement (exempt out-of-turn actions)
+  const exemptCommands = ['PIN_DISCORD', 'PIN_CHAT', 'UNPIN_CHAT', 'TOGGLE_SPECTATOR_ROLE'];
+  if (!exemptCommands.includes(command.type) && state.turn.currentPlayerId !== command.playerId) {
     throw new Error('Not your turn.');
   }
 

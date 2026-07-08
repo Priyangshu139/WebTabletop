@@ -150,4 +150,49 @@ describe('Rule Validation Engine', () => {
 
     expect(() => validateCommand(spectatorState, command, prng)).toThrow('Spectators cannot take actions.');
   });
+
+  it('validates PIN_CHAT, UNPIN_CHAT, and TOGGLE_SPECTATOR_ROLE regardless of turn', () => {
+    const state: EngineState = {
+      seed: 'test-seed',
+      prngState: 0,
+      activeModule: 'ludo-go-classic',
+      players: {
+        'P1': { id: 'P1', color: 'Red', skinTone: 'light', emojiFace: '😀', isHost: true },
+        'P2': { id: 'P2', color: 'Blue', skinTone: 'medium', emojiFace: '😎', isHost: false }
+      },
+      turn: { currentPlayerId: 'P2', phase: 'Roll' }, // It is P2's turn, not P1's
+      eventLog: [],
+      moduleState: { lastDiceValue: 0, playerPositions: { 'P1': 0, 'P2': 0 } }
+    };
+    const prng = new PRNG(state.seed, state.prngState);
+
+    // Host P1 pins chat message during P2's turn
+    const pinCmd: EngineCommand = {
+      type: 'PIN_CHAT',
+      playerId: 'P1',
+      payload: { chat: { id: 'chat-1', senderId: 'P2', text: 'Hello' } }
+    };
+    const events1 = validateCommand(state, pinCmd, prng);
+    expect(events1.length).toBe(1);
+    expect(events1[0].type).toBe('CHAT_PINNED');
+
+    // Host P1 unpins chat message during P2's turn
+    const unpinCmd: EngineCommand = {
+      type: 'UNPIN_CHAT',
+      playerId: 'P1',
+      payload: { chatId: 'chat-1' }
+    };
+    const events2 = validateCommand(state, unpinCmd, prng);
+    expect(events2.length).toBe(1);
+    expect(events2[0].type).toBe('CHAT_UNPINNED');
+
+    // Peer P2 toggles role during their turn
+    const toggleCmd: EngineCommand = {
+      type: 'TOGGLE_SPECTATOR_ROLE',
+      playerId: 'P2'
+    };
+    const events3 = validateCommand(state, toggleCmd, prng);
+    expect(events3.length).toBe(1);
+    expect(events3[0].type).toBe('SPECTATOR_ROLE_TOGGLED');
+  });
 });
