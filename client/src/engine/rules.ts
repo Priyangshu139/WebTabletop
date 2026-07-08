@@ -56,6 +56,24 @@ export function validateCommand(
         timestamp: Date.now()
       }];
     }
+    if (command.type === 'PIN_CHAT') {
+      if (!player?.isHost) {
+        throw new Error('Only the host can pin messages.');
+      }
+      return [{
+        type: 'CHAT_PINNED',
+        playerId: command.playerId,
+        payload: { chat: command.payload.chat },
+        timestamp: Date.now()
+      }];
+    }
+    if (command.type === 'TOGGLE_SPECTATOR_ROLE') {
+      return [{
+        type: 'SPECTATOR_ROLE_TOGGLED',
+        playerId: command.playerId,
+        timestamp: Date.now()
+      }];
+    }
   }
 
   // Turn enforcement (exempt PIN_DISCORD command)

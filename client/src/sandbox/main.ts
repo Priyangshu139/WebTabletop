@@ -65,15 +65,17 @@ function renderMatchmaking() {
         </div>
       </div>
 
-      <button class="sidebar-btn purple" id="sidebar-btn-create">
-        <strong>NEW LOBBY</strong>
-        <span style="font-size: 11px; opacity: 0.85;">Create a new game lobby</span>
-      </button>
+      <div id="sidebar-lobby-actions-container">
+        <button class="sidebar-btn purple" id="sidebar-btn-create">
+          <strong>NEW LOBBY</strong>
+          <span style="font-size: 11px; opacity: 0.85;">Create a new game lobby</span>
+        </button>
 
-      <button class="sidebar-btn blue" id="sidebar-btn-join">
-        <strong>JOIN LOBBY</strong>
-        <span style="font-size: 11px; opacity: 0.85;">Join with code or link</span>
-      </button>
+        <button class="sidebar-btn blue" id="sidebar-btn-join">
+          <strong>JOIN LOBBY</strong>
+          <span style="font-size: 11px; opacity: 0.85;">Join with code or link</span>
+        </button>
+      </div>
 
       <div class="sidebar-bottom-links">
         <div class="sidebar-link-item">⚙️ Settings</div>
@@ -146,6 +148,8 @@ function renderMatchmaking() {
   // Bind Sidebar and welcome setup listeners
   document.getElementById('sidebar-btn-create')?.addEventListener('click', async () => {
     showError('');
+    const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
+    if (actionsContainer) actionsContainer.style.display = 'none';
     const userTraits = getSavedAvatar();
     try {
       const res = await fetch(`${REST_URL}/api/lobby/create`, {
@@ -157,10 +161,13 @@ function renderMatchmaking() {
       initializeSync(data.lobbyId, data.playerId, data.secretHash, true, undefined, userTraits);
     } catch (err: any) {
       showError(`Failed to create lobby: ${err.message}`);
+      if (actionsContainer) actionsContainer.style.display = 'block';
     }
   });
 
   document.getElementById('sidebar-btn-join')?.addEventListener('click', () => {
+    const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
+    if (actionsContainer) actionsContainer.style.display = 'none';
     renderJoinCodePane();
   });
 
@@ -289,11 +296,6 @@ function renderJoinCodePane() {
           <input type="text" id="join-lobby-code-input" placeholder="e.g. X7G2Q9PL" style="background: #121722; color: white; border: 1px solid var(--panel-border); padding: 12px; border-radius: 8px; font-size: 18px; text-transform: uppercase; text-align: center; letter-spacing: 2px; font-weight: bold; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--panel-border)'">
         </div>
 
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <input type="checkbox" id="join-as-spectator-main" style="width: 16px; height: 16px; cursor: pointer; accent-color: #3b82f6;">
-          <label for="join-as-spectator-main" style="font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;">Join as Spectator (POV only)</label>
-        </div>
-
         <button class="action-btn" id="btn-submit-join-lobby" style="padding: 12px; font-size: 14px; font-weight: bold; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; margin-top: 6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Join Lobby</button>
       </div>
     </div>
@@ -307,7 +309,7 @@ function renderJoinCodePane() {
       return;
     }
     const userTraits = getSavedAvatar();
-    const isSpec = (document.getElementById('join-as-spectator-main') as HTMLInputElement).checked;
+    const isSpec = false;
 
     try {
       const res = await fetch(`${REST_URL}/api/lobby/join`, {
@@ -335,19 +337,60 @@ function renderJoinCodePane() {
   document.getElementById('join-lobby-code-input')?.focus();
 }
 
-function appendChatMessage(chat: any) {
-  const feed = document.getElementById('chat-messages');
-  if (feed) {
-    const item = document.createElement('div');
-    item.style.marginBottom = '6px';
-    item.innerHTML = `
-      <span style="background-color: ${chat.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 22px; height: 22px; display: inline-flex; align-items: center; justify-content: center; font-size: 11px; margin-right: 6px;">${chat.senderEmoji}</span>
-      <strong style="color: white; margin-right: 4px;">Player ${chat.senderId === 'P1' ? '1' : chat.senderId}:</strong>
-      <span style="color: #e2e8f0;">${chat.text}</span>
-    `;
-    feed.appendChild(item);
-    feed.scrollTop = feed.scrollHeight;
+function appendChatMessage(_chat: any) {
+  if (syncEngine) {
+    renderChatHistory(syncEngine.state);
   }
+}
+
+function renderChatHistory(gameState: EngineState) {
+  const messagesEl = document.getElementById('chat-messages');
+  if (!messagesEl || !syncEngine) return;
+
+  const isMyHost = gameState.players[activeSeatId]?.isHost === true;
+
+  // Header pinned section
+  let pinnedHtml = '';
+  if (gameState.pinnedChat) {
+    const senderColor = gameState.players[gameState.pinnedChat.senderId]?.color || '#ffffff';
+    pinnedHtml = `
+      <div style="background: rgba(234,179,8,0.12); border: 1px solid rgba(234,179,8,0.4); border-radius: 8px; padding: 8px; margin-bottom: 12px; font-size: 12px; border-left: 3px solid #facc15;">
+        <div style="color: #facc15; font-weight: bold; margin-bottom: 2px; font-size: 10px; display: flex; align-items: center; gap: 4px;">📌 PINNED BY HOST</div>
+        <span style="background-color: ${gameState.pinnedChat.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-right: 4px;">${gameState.pinnedChat.senderEmoji}</span>
+        <strong style="color: ${senderColor};">${gameState.pinnedChat.senderId === activeSeatId ? 'You' : gameState.pinnedChat.senderId}</strong>: ${gameState.pinnedChat.text}
+      </div>
+    `;
+  }
+
+  const historyHtml = syncEngine.chatHistory.map(m => {
+    const playerColor = gameState.players[m.senderId]?.color || '#ffffff';
+    const isPinned = gameState.pinnedChat && gameState.pinnedChat.id === m.id;
+    return `
+      <div style="margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; background: ${isPinned ? 'rgba(234,179,8,0.06)' : 'transparent'}; padding: 4px; border-radius: 6px;">
+        <div style="font-size: 13px;">
+          <span style="background-color: ${m.senderColor}; border-radius: 50%; padding: 2px; border: 1px solid rgba(255,255,255,0.2); width: 18px; height: 18px; display: inline-flex; align-items: center; justify-content: center; font-size: 9px; margin-right: 4px;">${m.senderEmoji}</span>
+          <strong style="color: ${playerColor};">${m.senderId === activeSeatId ? 'You' : m.senderId}</strong>: ${m.text}
+        </div>
+        ${isMyHost && !isPinned ? `
+          <button class="btn-pin-chat-msg" data-chat-id="${m.id}" style="background: transparent; border: none; cursor: pointer; font-size: 12px; padding: 2px; line-height: 1;" title="Pin Message">📌</button>
+        ` : ''}
+      </div>
+    `;
+  }).join('');
+
+  messagesEl.innerHTML = pinnedHtml + historyHtml;
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+
+  // Bind pin buttons
+  messagesEl.querySelectorAll('.btn-pin-chat-msg').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const chatId = (e.currentTarget as HTMLElement).getAttribute('data-chat-id');
+      const chatMsg = syncEngine?.chatHistory.find(c => c.id === chatId);
+      if (chatMsg) {
+        syncEngine?.dispatch('PIN_CHAT', { chat: chatMsg });
+      }
+    });
+  });
 }
 
 function showError(msg: string) {
@@ -1420,6 +1463,9 @@ function updateUI(gameState: EngineState) {
       banner.style.display = 'none';
     }
   }
+
+  // 10. Update floating Chat Drawer messages and binds
+  renderChatHistory(gameState);
 }
 
 function refreshVisualTimer(gameState: EngineState) {
@@ -1754,38 +1800,29 @@ function renderLobbyRoom(gameState: EngineState) {
       </div>
 
       <div>
-        <h3 style="margin-bottom: 8px;">Active Seats (${Object.keys(gameState.players).length}/4)</h3>
+        <h3 style="margin-bottom: 8px;">Active Seats (${Object.keys(gameState.players).length}/8)</h3>
         <div style="display: flex; flex-direction: column; gap: 8px;">
           ${Object.keys(gameState.players).map(pid => {
             const p = gameState.players[pid];
             const isMe = pid === currPlayerId;
             return `
-              <div class="player-list-row" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 8px; padding: 8px 12px;">
+              <div class="player-list-row" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 8px; padding: 8px 12px; display: flex; justify-content: space-between; align-items: center;">
                 <div class="player-list-info" style="display: flex; align-items: center; gap: 10px;">
                   <div class="player-pawn-circle" style="background-color: ${p.color}; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);"></div>
                   <span class="player-list-name" style="font-size: 13px; font-weight: 500;">
                     ${p.emojiFace} Player ${pid.substring(1)} ${p.isHost ? '👑' : ''} ${isMe ? '(You)' : ''}
                   </span>
                 </div>
-                <span class="player-list-ready" style="font-size: 11px; color: var(--ready-green); font-weight: bold;">Ready</span>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-
-      <div style="margin-top: auto; border-top: 1px solid var(--panel-border); padding-top: 12px;">
-        <h3 style="margin-top: 0; margin-bottom: 4px;">Avatar Color</h3>
-        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Modify your seat/pawn base color</div>
-        <div class="avatar-colors-grid">
-          ${[
-            '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
-            '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
-          ].map(col => {
-            const isSelected = gameState.players[currPlayerId]?.color === col;
-            return `
-              <div class="avatar-color-square ${isSelected ? 'active' : ''}" data-color="${col}" style="width: 32px; height: 32px; cursor: pointer;">
-                <div class="player-pawn-circle" style="background-color: ${col}; width: 18px; height: 18px; border-radius: 50%;"></div>
+                <div style="display: flex; align-items: center; gap: 8px;">
+                  <span class="player-list-ready" style="font-size: 11px; color: ${p.isSpectator ? '#94a3b8' : 'var(--ready-green)'}; font-weight: bold;">
+                    ${p.isSpectator ? 'Spectating' : 'Playing'}
+                  </span>
+                  ${isMe ? `
+                    <button class="action-btn" id="btn-toggle-my-role" style="padding: 4px 8px; font-size: 11px; margin: 0; background: rgba(59,130,246,0.15); border: 1px solid #3b82f6; color: #60a5fa; cursor: pointer;">
+                      ${p.isSpectator ? 'Play' : 'Spectate'}
+                    </button>
+                  ` : ''}
+                </div>
               </div>
             `;
           }).join('')}
@@ -1827,28 +1864,33 @@ function renderLobbyRoom(gameState: EngineState) {
         `}
       </div>
 
-      <!-- Download status bars -->
+      <!-- Download status bars wrapped in Accordion Details -->
       <div>
-        <h3 style="margin-bottom: 8px;">Download Modules Progress</h3>
-        <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
-          ${Object.keys(gameState.players).map(pid => {
-            const p = gameState.players[pid];
-            const progress = mockDownloadProgress[pid] || 100;
-            const totalSize = selectedGame === 'uno-go' ? 250 : selectedGame === 'monopoly-go' ? 320 : 180;
-            const currentSize = Math.round((progress / 100) * totalSize);
-            return `
-              <div style="display: flex; flex-direction: column; gap: 4px;">
-                <div style="display: flex; justify-content: space-between;">
-                  <span style="font-weight: bold;">${p.emojiFace} Player ${pid.substring(1)}</span>
-                  <span style="color: var(--text-muted); font-size: 11px;">${currentSize} MB / ${totalSize} MB (${progress}%)</span>
+        <details style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 10px; padding: 10px;" open>
+          <summary style="font-weight: bold; cursor: pointer; color: #a855f7; list-style: none; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+            <span>📦 Download Modules Status</span>
+            <span style="font-size: 11px; opacity: 0.8;">▼ Toggle</span>
+          </summary>
+          <div style="display: flex; flex-direction: column; gap: 10px; margin-top: 10px; font-size: 12px;">
+            ${Object.keys(gameState.players).map(pid => {
+              const p = gameState.players[pid];
+              const progress = mockDownloadProgress[pid] || 100;
+              const totalSize = selectedGame === 'uno-go' ? 250 : selectedGame === 'monopoly-go' ? 320 : 180;
+              const currentSize = Math.round((progress / 100) * totalSize);
+              return `
+                <div style="display: flex; flex-direction: column; gap: 4px;">
+                  <div style="display: flex; justify-content: space-between;">
+                    <span style="font-weight: bold;">${p.emojiFace} Player ${pid.substring(1)}</span>
+                    <span style="color: var(--text-muted); font-size: 11px;">${currentSize} MB / ${totalSize} MB (${progress}%)</span>
+                  </div>
+                  <div class="download-progress-bar-container">
+                    <div class="download-progress-bar" style="width: ${progress}%;"></div>
+                  </div>
                 </div>
-                <div class="download-progress-bar-container">
-                  <div class="download-progress-bar" style="width: ${progress}%;"></div>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
+              `;
+            }).join('')}
+          </div>
+        </details>
       </div>
 
       <!-- Game Rules (directly below) -->
@@ -1944,13 +1986,8 @@ function renderLobbyRoom(gameState: EngineState) {
     navigator.clipboard.writeText(`http://${window.location.host}/join/${lobbyId}`);
   });
 
-  document.querySelectorAll('.avatar-colors-grid .avatar-color-square').forEach(el => {
-    el.addEventListener('click', () => {
-      const color = el.getAttribute('data-color');
-      if (color) {
-        syncEngine?.dispatch('CHANGE_PAWN_COLOR', { color });
-      }
-    });
+  document.getElementById('btn-toggle-my-role')?.addEventListener('click', () => {
+    syncEngine?.dispatch('TOGGLE_SPECTATOR_ROLE');
   });
 
   if (isMyHost) {
@@ -1995,14 +2032,7 @@ function renderLobbyRoom(gameState: EngineState) {
     }
   });
 
-  const messagesEl = document.getElementById('chat-messages');
-  if (messagesEl && syncEngine) {
-    messagesEl.innerHTML = syncEngine.chatHistory.map(m => {
-      const playerColor = gameState.players[m.senderId]?.color || '#ffffff';
-      return `<div style="margin-bottom: 4px;"><strong style="color: ${playerColor};">${m.senderId === activeSeatId ? 'You' : m.senderId}</strong>: ${m.text}</div>`;
-    }).join('');
-    messagesEl.scrollTop = messagesEl.scrollHeight;
-  }
+  renderChatHistory(gameState);
 }
 
 function triggerFloatingMoneyAlert(amount: number) {

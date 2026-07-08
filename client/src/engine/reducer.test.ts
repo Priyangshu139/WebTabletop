@@ -149,4 +149,39 @@ describe('Pure State Reducer', () => {
     expect(state.players['P2'].color).not.toBe('#ef4444');
     expect(state.players['P2'].color).toBe('#3b82f6');
   });
+
+  it('verifies CHAT_PINNED and SPECTATOR_ROLE_TOGGLED updates state correctly', () => {
+    // Add P1
+    const joinEvent: EngineEvent = {
+      type: 'PLAYER_JOINED',
+      playerId: 'P1',
+      payload: { color: '#ef4444' },
+      timestamp: 4001
+    };
+    let state = applyEvent(initialTestState, joinEvent);
+
+    // Toggle Role to Spectator
+    const toggleEvent: EngineEvent = {
+      type: 'SPECTATOR_ROLE_TOGGLED',
+      playerId: 'P1',
+      timestamp: 4002
+    };
+    state = applyEvent(state, toggleEvent);
+    expect(state.players['P1'].isSpectator).toBe(true);
+
+    // Toggle Role back to Player
+    state = applyEvent(state, toggleEvent);
+    expect(state.players['P1'].isSpectator).toBe(false);
+
+    // Pin Chat
+    const chatMsg = { id: 'chat-1', senderId: 'P1', text: 'Hello World' };
+    const pinEvent: EngineEvent = {
+      type: 'CHAT_PINNED',
+      playerId: 'P1',
+      payload: { chat: chatMsg },
+      timestamp: 4003
+    };
+    state = applyEvent(state, pinEvent);
+    expect(state.pinnedChat).toEqual(chatMsg);
+  });
 });

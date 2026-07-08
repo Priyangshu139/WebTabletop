@@ -27,13 +27,62 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       break;
     }
 
+    case 'CHAT_PINNED':
+      nextState.pinnedChat = event.payload.chat;
+      break;
+
+    case 'SPECTATOR_ROLE_TOGGLED': {
+      const p = nextState.players[event.playerId!];
+      if (p) {
+        p.isSpectator = !p.isSpectator;
+        if (p.isSpectator) {
+          p.money = undefined;
+          p.hand = undefined;
+          delete nextState.moduleState.playerPositions[event.playerId!];
+        } else {
+          nextState.moduleState.playerPositions[event.playerId!] = 0;
+        }
+      }
+      break;
+    }
+
     case 'GAME_STARTED': {
       nextState.lobbyStarted = true;
       nextState.turnStartedAt = Date.now();
       nextState.turn.phase = 'StartTurn';
-      nextState.turn.currentPlayerId = 'P1';
 
       const activeGame = nextState.selectedGame || 'ludo-go-classic';
+      
+      // Enforce game limits: all current games support max 4 players
+      const limit = 4;
+      const sortedPids = Object.keys(nextState.players).sort((a, b) => {
+        const numA = parseInt(a.replace('P', '')) || 0;
+        const numB = parseInt(b.replace('P', '')) || 0;
+        return numA - numB;
+      });
+
+      let activeCount = 0;
+      sortedPids.forEach(pid => {
+        const p = nextState.players[pid];
+        if (p.isSpectator) {
+          p.isSpectator = true;
+          p.money = undefined;
+          p.hand = undefined;
+        } else {
+          if (activeCount < limit) {
+            p.isSpectator = false;
+            activeCount++;
+          } else {
+            p.isSpectator = true;
+            p.money = undefined;
+            p.hand = undefined;
+          }
+        }
+      });
+
+      const firstActive = sortedPids.find(pid => !nextState.players[pid].isSpectator) || 'P1';
+      nextState.turn.currentPlayerId = firstActive;
+
       if (activeGame === 'uno-go') {
         const colors = ['red', 'blue', 'green', 'yellow'];
         const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'SKIP', 'REVERSE', 'DRAW_TWO'];
@@ -115,15 +164,16 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       if (!isSpec) {
         const existingColors = Object.values(nextState.players)
           .filter(p => p.id !== newPid && !p.isSpectator)
-          .map(p => p.color);
+          .map(p => p.color.toLowerCase());
 
         const distinctColors = [
           '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
           '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
         ];
 
-        if (existingColors.includes(baseColor)) {
-          const freeColor = distinctColors.find(c => !existingColors.includes(c));
+        const matchColor = baseColor.toLowerCase();
+        if (existingColors.includes(matchColor)) {
+          const freeColor = distinctColors.find(c => !existingColors.includes(c.toLowerCase()));
           if (freeColor) {
             baseColor = freeColor;
           }
