@@ -517,27 +517,9 @@ async function initializeSync(
           </div>
         </div>
 
-        <button class="sidebar-btn purple" id="sidebar-btn-create" disabled style="opacity: 0.6; cursor: not-allowed;">
-          <strong>NEW LOBBY</strong>
-          <span style="font-size: 11px; opacity: 0.85;">Connected to active lobby</span>
-        </button>
-
-        <button class="sidebar-btn blue" id="sidebar-btn-join" disabled style="opacity: 0.6; cursor: not-allowed;">
-          <strong>JOIN LOBBY</strong>
-          <span style="font-size: 11px; opacity: 0.85;">Connected to active lobby</span>
-        </button>
-
-        <div class="sidebar-input-box" style="opacity: 0.6; pointer-events: none;">
-          <label style="font-size: 11px; font-weight: bold; color: var(--text-muted);">ENTER CODE</label>
-          <span style="font-size: 11px; color: var(--text-muted); margin-bottom: 2px;">Enter 8-character code:</span>
-          <div class="sidebar-input-row">
-            <input type="text" placeholder="${lobbyId}" disabled>
-            <button disabled>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                <polyline points="9 18 15 12 9 6"></polyline>
-              </svg>
-            </button>
-          </div>
+        <div style="background: rgba(168,85,247,0.1); border: 1px solid rgba(168,85,247,0.3); border-radius: 10px; padding: 12px; margin-top: 10px; margin-bottom: 10px; text-align: center; width: 100%;">
+          <div style="color: #c084fc; font-weight: bold; font-size: 11px; margin-bottom: 2px;">⚡ CONNECTED TO LOBBY</div>
+          <div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">Room: ${lobbyId}</div>
         </div>
 
         <div class="sidebar-bottom-links">
@@ -728,7 +710,7 @@ async function initializeSync(
   );
   try {
     await syncEngine.start();
-    updateUI(initialState);
+    updateUI(syncEngine.state);
   } catch (err: any) {
     alert(`Failed P2P Connection: ${err.message}`);
     renderMatchmaking();
@@ -1866,7 +1848,7 @@ function renderLobbyRoom(gameState: EngineState) {
 
       <!-- Download status bars wrapped in Accordion Details -->
       <div>
-        <details style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 10px; padding: 10px;" open>
+        <details style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 10px; padding: 10px;">
           <summary style="font-weight: bold; cursor: pointer; color: #a855f7; list-style: none; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
             <span>📦 Download Modules Status</span>
             <span style="font-size: 11px; opacity: 0.8;">▼ Toggle</span>
