@@ -351,9 +351,9 @@ function renderChatHistory(gameState: EngineState) {
   const isMyHost = gameState.players[activeSeatId]?.isHost === true;
 
   // Header pinned section
-  let pinnedHtml = '';
+  let pinsHtml = '';
   if (gameState.pinnedChats && gameState.pinnedChats.length > 0) {
-    const pinsHtml = gameState.pinnedChats.map(pin => {
+    pinsHtml = gameState.pinnedChats.map(pin => {
       const senderColor = gameState.players[pin.senderId]?.color || '#ffffff';
       return `
         <div style="background: rgba(255, 255, 255, 0.06); border: 1.5px solid #ffffff; border-radius: 8px; padding: 8px 12px; margin-bottom: 8px; font-size: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 12px rgba(255, 255, 255, 0.05);">
@@ -369,13 +369,6 @@ function renderChatHistory(gameState: EngineState) {
         </div>
       `;
     }).join('');
-    
-    pinnedHtml = `
-      <div style="margin-bottom: 12px; border-bottom: 1px dashed rgba(255, 255, 255, 0.15); padding-bottom: 8px;">
-        <div style="color: #ffffff; font-weight: bold; margin-bottom: 6px; font-size: 10px; display: flex; align-items: center; gap: 4px; letter-spacing: 0.5px; text-transform: uppercase;">📌 Pinned Messages (Max 3)</div>
-        ${pinsHtml}
-      </div>
-    `;
   }
 
   const historyHtml = syncEngine.chatHistory.map(m => {
@@ -394,7 +387,31 @@ function renderChatHistory(gameState: EngineState) {
     `;
   }).join('');
 
-  messagesEl.innerHTML = pinnedHtml + historyHtml;
+  const pinnedEl = document.getElementById('chat-pinned-container');
+  if (pinnedEl) {
+    if (gameState.pinnedChats && gameState.pinnedChats.length > 0) {
+      pinnedEl.innerHTML = `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 10px; padding: 10px; margin-bottom: 8px;">
+          <div style="color: #ffffff; font-weight: bold; margin-bottom: 6px; font-size: 10px; display: flex; align-items: center; gap: 4px; letter-spacing: 0.5px; text-transform: uppercase;">📌 Pinned Messages (Max 3)</div>
+          ${pinsHtml}
+        </div>
+      `;
+      pinnedEl.style.display = 'block';
+    } else {
+      pinnedEl.style.display = 'none';
+      pinnedEl.innerHTML = '';
+    }
+    messagesEl.innerHTML = historyHtml;
+  } else {
+    // Legacy fallback
+    let pinnedHtml = pinsHtml ? `
+      <div style="margin-bottom: 12px; border-bottom: 1px dashed rgba(255, 255, 255, 0.15); padding-bottom: 8px;">
+        <div style="color: #ffffff; font-weight: bold; margin-bottom: 6px; font-size: 10px; display: flex; align-items: center; gap: 4px; letter-spacing: 0.5px; text-transform: uppercase;">📌 Pinned Messages (Max 3)</div>
+        ${pinsHtml}
+      </div>
+    ` : '';
+    messagesEl.innerHTML = pinnedHtml + historyHtml;
+  }
   messagesEl.scrollTop = messagesEl.scrollHeight;
 
   // Bind pin buttons
@@ -409,7 +426,8 @@ function renderChatHistory(gameState: EngineState) {
   });
 
   // Bind unpin buttons
-  messagesEl.querySelectorAll('.btn-unpin-chat-msg').forEach(btn => {
+  const unpinContainer = pinnedEl || messagesEl;
+  unpinContainer.querySelectorAll('.btn-unpin-chat-msg').forEach(btn => {
     btn.addEventListener('click', (e) => {
       const chatId = (e.currentTarget as HTMLElement).getAttribute('data-chat-id');
       if (chatId) {
@@ -640,6 +658,7 @@ async function initializeSync(
           <!-- P2P Lobby Chat -->
           <div style="display: flex; flex-direction: column; flex-grow: 1;">
             <h3 style="margin-top: 0; margin-bottom: 8px;">Lobby Chat</h3>
+            <div id="chat-pinned-container" style="display: none; margin-bottom: 8px;"></div>
             <div id="chat-messages" style="height: 180px; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 8px; flex-grow: 1;"></div>
             <div style="display: flex; gap: 8px;">
               <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
@@ -875,6 +894,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
     <button class="chat-drawer-toggle" id="btn-chat-toggle">◀</button>
     <div class="chat-drawer" id="chat-drawer">
       <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">💬 Lobby Chat</h3>
+      <div id="chat-pinned-container" style="display: none; margin-bottom: 8px;"></div>
       <div id="chat-messages" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 12px;"></div>
       <div style="display: flex; gap: 6px;">
         <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
@@ -1960,6 +1980,7 @@ function renderLobbyRoom(gameState: EngineState) {
     <button class="chat-drawer-toggle" id="btn-chat-toggle">◀</button>
     <div class="chat-drawer" id="chat-drawer">
       <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">💬 Lobby Chat</h3>
+      <div id="chat-pinned-container" style="display: none; margin-bottom: 8px;"></div>
       <div id="chat-messages" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 12px;"></div>
       <div style="display: flex; gap: 6px;">
         <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
