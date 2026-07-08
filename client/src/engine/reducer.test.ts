@@ -126,4 +126,27 @@ describe('Pure State Reducer', () => {
     expect(state.lobbyStarted).toBe(true);
     expect(state.moduleState.playerPositions['P1']).toBe(0);
   });
+
+  it('verifies PLAYER_JOINED resolves color conflicts automatically', () => {
+    // Add P1 with color #ef4444
+    const joinEvent1: EngineEvent = {
+      type: 'PLAYER_JOINED',
+      playerId: 'P1',
+      payload: { color: '#ef4444' },
+      timestamp: 3001
+    };
+    let state = applyEvent(initialTestState, joinEvent1);
+    expect(state.players['P1'].color).toBe('#ef4444');
+
+    // Add P2 with same color #ef4444 - should be auto-assigned next free color (e.g. #3b82f6)
+    const joinEvent2: EngineEvent = {
+      type: 'PLAYER_JOINED',
+      playerId: 'P2',
+      payload: { color: '#ef4444' },
+      timestamp: 3002
+    };
+    state = applyEvent(state, joinEvent2);
+    expect(state.players['P2'].color).not.toBe('#ef4444');
+    expect(state.players['P2'].color).toBe('#3b82f6');
+  });
 });

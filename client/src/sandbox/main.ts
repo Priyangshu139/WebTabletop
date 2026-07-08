@@ -31,8 +31,9 @@ function getSavedAvatar() {
 
 function saveAvatarTraits() {
   const emoji = (document.getElementById('avatar-emoji') as HTMLSelectElement).value;
-  const color = (document.getElementById('avatar-color') as HTMLInputElement).value;
   const skin = (document.getElementById('avatar-skin') as HTMLSelectElement).value;
+  const activeColorEl = document.querySelector('#profile-colors-selector .avatar-color-square.active') as HTMLElement;
+  const color = activeColorEl ? activeColorEl.dataset.color || '#ef4444' : '#ef4444';
   localStorage.setItem('webtabletop_avatar', JSON.stringify({ emojiFace: emoji, color, skinTone: skin }));
 }
 
@@ -74,19 +75,6 @@ function renderMatchmaking() {
         <span style="font-size: 11px; opacity: 0.85;">Join with code or link</span>
       </button>
 
-      <div class="sidebar-input-box">
-        <label style="font-size: 11px; font-weight: bold; color: var(--text-muted);">ENTER CODE</label>
-        <span style="font-size: 11px; color: var(--text-muted); margin-bottom: 2px;">Enter 8-character code:</span>
-        <div class="sidebar-input-row">
-          <input type="text" id="sidebar-lobby-code" placeholder="CODE">
-          <button id="sidebar-btn-submit-code">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-              <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-          </button>
-        </div>
-      </div>
-
       <div class="sidebar-bottom-links">
         <div class="sidebar-link-item">⚙️ Settings</div>
         <div class="sidebar-link-item">ℹ️ About</div>
@@ -125,9 +113,22 @@ function renderMatchmaking() {
               </select>
             </div>
           </div>
-          <div style="display: flex; gap: 10px; align-items: center;">
+          <div style="display: flex; flex-direction: column; gap: 6px;">
             <label style="font-size: 12px; color: var(--text-muted);">Pawn Base Color:</label>
-            <input type="color" id="avatar-color" value="${traits.color}" style="background: transparent; border: none; width: 50px; height: 32px; cursor: pointer;">
+            <div class="profile-colors-grid" id="profile-colors-selector">
+              ${[
+                '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
+                '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
+              ].map(col => {
+                const isSelected = traits.color === col;
+                return `
+                  <div class="avatar-color-square ${isSelected ? 'active' : ''}" data-color="${col}" style="width: 36px; height: 36px;">
+                    <div class="player-pawn-circle" style="background-color: ${col}; width: 20px; height: 20px;"></div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+          </div>
           </div>
         </div>
 
@@ -159,41 +160,21 @@ function renderMatchmaking() {
     }
   });
 
-  const submitJoin = async () => {
-    showError('');
-    const code = (document.getElementById('sidebar-lobby-code') as HTMLInputElement).value.toUpperCase().trim();
-    if (!code) {
-      showError('Please enter a lobby code.');
-      return;
-    }
-    const userTraits = getSavedAvatar();
-    try {
-      const res = await fetch(`${REST_URL}/api/lobby/join`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lobbyId: code, traits: userTraits })
-      });
-      if (!res.ok) {
-        showError(await res.text());
-        return;
-      }
-      const data = await res.json();
-      const stateRes = await fetch(`${REST_URL}/api/lobby/${code}/state`);
-      const stateData = await stateRes.json();
-      initializeSync(code, data.playerId, data.secretHash, false, stateData.state, userTraits);
-    } catch (err: any) {
-      showError(`Failed to join lobby: ${err.message}`);
-    }
-  };
-
-  document.getElementById('sidebar-btn-submit-code')?.addEventListener('click', submitJoin);
-  document.getElementById('sidebar-lobby-code')?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') submitJoin();
+  document.getElementById('sidebar-btn-join')?.addEventListener('click', () => {
+    renderJoinCodePane();
   });
 
   document.getElementById('avatar-emoji')?.addEventListener('change', saveAvatarTraits);
-  document.getElementById('avatar-color')?.addEventListener('change', saveAvatarTraits);
   document.getElementById('avatar-skin')?.addEventListener('change', saveAvatarTraits);
+
+  document.querySelectorAll('#profile-colors-selector .avatar-color-square').forEach(el => {
+    el.addEventListener('click', (e) => {
+      document.querySelectorAll('#profile-colors-selector .avatar-color-square').forEach(sw => sw.classList.remove('active'));
+      const target = e.currentTarget as HTMLElement;
+      target.classList.add('active');
+      saveAvatarTraits();
+    });
+  });
 
   document.getElementById('btn-create-lobby')?.addEventListener('click', async () => {
     showError('');
@@ -288,6 +269,70 @@ function renderMatchmaking() {
     };
     reader.readAsText(file);
   });
+}
+
+function renderJoinCodePane() {
+  showError('');
+  const mainContent = document.getElementById('lobby-main-content');
+  if (!mainContent) return;
+
+  mainContent.innerHTML = `
+    <div class="sandbox-panel" style="width: 420px; margin: auto; border: 1px solid var(--panel-border); border-radius: 12px; padding: 24px; background: #0f172a; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+      <div class="title-header" style="margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 24px; color: #3b82f6;">Join Tabletop Lobby</h1>
+        <p style="color: var(--text-muted); font-size: 13px; margin: 4px 0 0 0;">Enter the 8-character lobby code to connect.</p>
+      </div>
+
+      <div style="display: flex; flex-direction: column; gap: 14px;">
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <label style="font-size: 12px; font-weight: bold; color: var(--text-muted);">LOBBY CODE</label>
+          <input type="text" id="join-lobby-code-input" placeholder="e.g. X7G2Q9PL" style="background: #121722; color: white; border: 1px solid var(--panel-border); padding: 12px; border-radius: 8px; font-size: 18px; text-transform: uppercase; text-align: center; letter-spacing: 2px; font-weight: bold; outline: none; transition: border-color 0.2s;" onfocus="this.style.borderColor='#3b82f6'" onblur="this.style.borderColor='var(--panel-border)'">
+        </div>
+
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <input type="checkbox" id="join-as-spectator-main" style="width: 16px; height: 16px; cursor: pointer; accent-color: #3b82f6;">
+          <label for="join-as-spectator-main" style="font-size: 13px; color: var(--text-muted); cursor: pointer; user-select: none;">Join as Spectator (POV only)</label>
+        </div>
+
+        <button class="action-btn" id="btn-submit-join-lobby" style="padding: 12px; font-size: 14px; font-weight: bold; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; margin-top: 6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Join Lobby</button>
+      </div>
+    </div>
+  `;
+
+  const submitJoin = async () => {
+    showError('');
+    const code = (document.getElementById('join-lobby-code-input') as HTMLInputElement).value.toUpperCase().trim();
+    if (!code) {
+      showError('Please enter a lobby code.');
+      return;
+    }
+    const userTraits = getSavedAvatar();
+    const isSpec = (document.getElementById('join-as-spectator-main') as HTMLInputElement).checked;
+
+    try {
+      const res = await fetch(`${REST_URL}/api/lobby/join`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lobbyId: code, traits: { ...userTraits, isSpectator: isSpec } })
+      });
+      if (!res.ok) {
+        showError(await res.text());
+        return;
+      }
+      const data = await res.json();
+      const stateRes = await fetch(`${REST_URL}/api/lobby/${code}/state`);
+      const stateData = await stateRes.json();
+      initializeSync(code, data.playerId, data.secretHash, false, stateData.state, { ...userTraits, isSpectator: isSpec });
+    } catch (err: any) {
+      showError(`Failed to join lobby: ${err.message}`);
+    }
+  };
+
+  document.getElementById('btn-submit-join-lobby')?.addEventListener('click', submitJoin);
+  document.getElementById('join-lobby-code-input')?.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') submitJoin();
+  });
+  document.getElementById('join-lobby-code-input')?.focus();
 }
 
 function appendChatMessage(chat: any) {
@@ -762,18 +807,8 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
       </div>
     </div>
 
-    <!-- Column 3: Chat Logs, Event Feeds & Inspectors -->
+    <!-- Column 3: Match Events, Inspectors & download buttons -->
     <div class="sandbox-panel" style="gap: 16px;">
-      <!-- P2P Lobby Chat -->
-      <div style="display: flex; flex-direction: column; flex-grow: 1;">
-        <h3 style="margin-top: 0; margin-bottom: 8px;">Lobby Chat</h3>
-        <div id="chat-messages" style="height: 180px; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 8px; flex-grow: 1;"></div>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #121722; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
-          <button class="action-btn" id="btn-send-chat" style="padding: 10px 16px; font-size: 13px; margin-right: 0;">Send</button>
-        </div>
-      </div>
-
       <div>
         <h3 style="margin-bottom: 8px;">Match Events</h3>
         <div class="event-feed" id="event-feed" style="height: 120px;"></div>
@@ -803,6 +838,17 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
 
     <!-- Victory Celeb Overlay -->
     <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,15,30,0.92); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000000; backdrop-filter: blur(12px);"></div>
+
+    <!-- Floating Chat Toggle Drawer -->
+    <button class="chat-drawer-toggle" id="btn-chat-toggle">◀</button>
+    <div class="chat-drawer" id="chat-drawer">
+      <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">💬 Lobby Chat</h3>
+      <div id="chat-messages" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 12px;"></div>
+      <div style="display: flex; gap: 6px;">
+        <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
+        <button class="action-btn" id="btn-send-chat" style="padding: 10px 14px; font-size: 13px; margin-right: 0;">Send</button>
+      </div>
+    </div>
   `;
 
   const container = document.getElementById('three-canvas-container') as HTMLDivElement;
@@ -866,6 +912,19 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
   toggleBtn?.addEventListener('click', () => {
     if (stateInspector) {
       stateInspector.style.display = stateInspector.style.display === 'none' ? 'block' : 'none';
+    }
+  });
+
+  // Chat Drawer slide toggle bind
+  const chatToggleBtn = document.getElementById('btn-chat-toggle');
+  const chatDrawer = document.getElementById('chat-drawer');
+  chatToggleBtn?.addEventListener('click', () => {
+    chatDrawer?.classList.toggle('active');
+    chatToggleBtn?.classList.toggle('active');
+    if (chatDrawer?.classList.contains('active')) {
+      chatToggleBtn.innerHTML = '▶';
+    } else {
+      chatToggleBtn.innerHTML = '◀';
     }
   });
 }
@@ -1655,6 +1714,9 @@ function renderLobbyRoom(gameState: EngineState) {
 
   mainContent.classList.remove('gameplay-active');
   mainContent.style.display = 'flex';
+  mainContent.style.gap = '20px';
+  mainContent.style.justifyContent = 'center';
+  mainContent.style.alignItems = 'flex-start';
   
   const lobbyId = syncEngine?.lobbyId || 'LOBBY';
   const currPlayerId = activeSeatId;
@@ -1669,206 +1731,207 @@ function renderLobbyRoom(gameState: EngineState) {
   });
 
   mainContent.innerHTML = `
-    <!-- Column 2: Lobby & Players Roster -->
-    <div class="lobby-column">
-      <h3>Lobby Info</h3>
-      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; margin-bottom: 8px;">
-        <div class="code-panel">
-          <div>
-            <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; margin-bottom: 2px;">LOBBY CODE</div>
-            <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px;">${lobbyId}</h1>
-          </div>
-          <button class="action-btn" id="btn-copy-code" style="padding: 8px 10px; margin: 0; background: #121722; font-size: 14px;">📋</button>
-        </div>
-        <div style="margin-top: 12px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 8px;">
-          <div style="color: var(--text-muted); margin-bottom: 2px;">LOBBY LINK</div>
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <span style="color: #60a5fa; font-weight: bold; font-family: monospace;">tbl.top/join/${lobbyId}</span>
-            <button class="action-btn" id="btn-copy-link" style="padding: 4px 8px; margin: 0; font-size: 11px; background: #121722;">Copy</button>
-          </div>
-        </div>
-      </div>
-
-      <h3>Players (${Object.keys(gameState.players).length}/4)</h3>
-      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 4px;">
-        ${Object.keys(gameState.players).map(pid => {
-          const p = gameState.players[pid];
-          const isMe = pid === currPlayerId;
-          const status = 'Ready';
-          return `
-            <div class="player-list-row">
-              <div class="player-list-info">
-                <div class="player-pawn-circle" style="background-color: ${p.color};"></div>
-                <span class="player-list-name">
-                  ${p.emojiFace} Player ${pid.substring(1)} ${p.isHost ? '👑' : ''} ${isMe ? '(You)' : ''}
-                </span>
-              </div>
-              <span class="player-list-ready">${status}</span>
+    <!-- Panel 1: Lobby Info & Players Roster -->
+    <div class="sandbox-panel" style="width: 360px; flex-shrink: 0; min-height: 520px; display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <h3 style="margin-top: 0; margin-bottom: 8px;">Lobby Details</h3>
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 14px;">
+          <div class="code-panel">
+            <div>
+              <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; margin-bottom: 2px;">LOBBY CODE</div>
+              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px; color: #a855f7;">${lobbyId}</h1>
             </div>
-          `;
-        }).join('')}
+            <button class="action-btn" id="btn-copy-code" style="padding: 8px 12px; margin: 0; background: #121722; font-size: 14px;">📋 Copy</button>
+          </div>
+          <div style="margin-top: 12px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 8px;">
+            <div style="color: var(--text-muted); margin-bottom: 2px;">LOBBY LINK</div>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <span style="color: #60a5fa; font-weight: bold; font-family: monospace;">tbl.top/join/${lobbyId}</span>
+              <button class="action-btn" id="btn-copy-link" style="padding: 4px 8px; margin: 0; font-size: 11px; background: #121722;">Copy</button>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <div style="margin-top: auto; color: var(--ready-green); font-size: 13px; font-weight: bold; display: flex; align-items: center; gap: 6px;">
-        ✅ All players are ready!
+      <div>
+        <h3 style="margin-bottom: 8px;">Active Seats (${Object.keys(gameState.players).length}/4)</h3>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${Object.keys(gameState.players).map(pid => {
+            const p = gameState.players[pid];
+            const isMe = pid === currPlayerId;
+            return `
+              <div class="player-list-row" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 8px; padding: 8px 12px;">
+                <div class="player-list-info" style="display: flex; align-items: center; gap: 10px;">
+                  <div class="player-pawn-circle" style="background-color: ${p.color}; width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.2);"></div>
+                  <span class="player-list-name" style="font-size: 13px; font-weight: 500;">
+                    ${p.emojiFace} Player ${pid.substring(1)} ${p.isHost ? '👑' : ''} ${isMe ? '(You)' : ''}
+                  </span>
+                </div>
+                <span class="player-list-ready" style="font-size: 11px; color: var(--ready-green); font-weight: bold;">Ready</span>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <div style="margin-top: auto; border-top: 1px solid var(--panel-border); padding-top: 12px;">
+        <h3 style="margin-top: 0; margin-bottom: 4px;">Avatar Color</h3>
+        <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Modify your seat/pawn base color</div>
+        <div class="avatar-colors-grid">
+          ${[
+            '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
+            '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
+          ].map(col => {
+            const isSelected = gameState.players[currPlayerId]?.color === col;
+            return `
+              <div class="avatar-color-square ${isSelected ? 'active' : ''}" data-color="${col}" style="width: 32px; height: 32px; cursor: pointer;">
+                <div class="player-pawn-circle" style="background-color: ${col}; width: 18px; height: 18px; border-radius: 50%;"></div>
+              </div>
+            `;
+          }).join('')}
+        </div>
       </div>
     </div>
 
-    <!-- Column 3: Select Game & Downloads -->
-    <div class="lobby-column wide">
-      <h3>Select Game</h3>
-      <div class="game-selection-grid" style="margin-top: 6px;">
-        <div class="game-card ${selectedGame === 'uno-go' ? 'active' : ''}" data-game="uno-go">
-          <div class="game-card-img" style="background-image: url('https://placehold.co/180x90/701a75/ffffff?text=UNO+GO');"></div>
-          <div class="game-card-title">UNO GO</div>
-        </div>
-        <div class="game-card ${selectedGame === 'monopoly-go' ? 'active' : ''}" data-game="monopoly-go">
-          <div class="game-card-img" style="background-image: url('https://placehold.co/180x90/1e3a8a/ffffff?text=MONOPOLY');"></div>
-          <div class="game-card-title">MONOPOLY</div>
-        </div>
-        <div class="game-card ${selectedGame === 'ludo-go-classic' ? 'active' : ''}" data-game="ludo-go-classic">
-          <div class="game-card-img" style="background-image: url('https://placehold.co/180x90/065f46/ffffff?text=LUDO+GO');"></div>
-          <div class="game-card-title">LUDO GO</div>
-        </div>
-        <div class="game-card" style="opacity: 0.5; cursor: not-allowed;">
-          <div class="game-card-img" style="background-image: url('https://placehold.co/180x90/1f2937/ffffff?text=CHESS');"></div>
-          <div class="game-card-title">CHESS</div>
-        </div>
-        <div class="game-card" style="opacity: 0.5; cursor: not-allowed;">
-          <div class="game-card-img" style="background-image: url('https://placehold.co/180x90/1f2937/ffffff?text=CARROM');"></div>
-          <div class="game-card-title">CARROM</div>
-        </div>
-        <div class="game-card" style="opacity: 0.8;">
-          <div class="game-card-img" style="background-image: url('https://placehold.co/180x90/4c1d95/ffffff?text=MORE');"></div>
-          <div class="game-card-title">MORE GAMES</div>
-        </div>
-      </div>
-
-      <h3 style="margin-top: 14px;">Downloading Module (${selectedGame.replace(/-/g, ' ').toUpperCase()})</h3>
-      <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 13px;">
-        ${Object.keys(gameState.players).map(pid => {
-          const p = gameState.players[pid];
-          const progress = mockDownloadProgress[pid] || 100;
-          const totalSize = selectedGame === 'uno-go' ? 250 : selectedGame === 'monopoly-go' ? 320 : 180;
-          const currentSize = Math.round((progress / 100) * totalSize);
-          return `
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <div style="display: flex; justify-content: space-between;">
-                <span style="font-weight: bold;">${p.emojiFace} Player ${pid.substring(1)}</span>
-                <span style="color: var(--text-muted);">${currentSize} MB / ${totalSize} MB (${progress}%)</span>
-              </div>
-              <div class="download-progress-bar-container">
-                <div class="download-progress-bar" style="width: ${progress}%;"></div>
-              </div>
+    <!-- Panel 2: Selected Game & Rules -->
+    <div class="sandbox-panel" style="width: 500px; flex-shrink: 0; min-height: 520px; display: flex; flex-direction: column; gap: 16px;">
+      <div>
+        <h3 style="margin-top: 0; margin-bottom: 8px;">Selected Game Module</h3>
+        
+        <!-- Game Selection for Host, Info Card for Peers -->
+        ${isMyHost ? `
+          <div style="font-size: 11px; color: var(--text-muted); margin-bottom: 8px;">Host game selector: click card to select game</div>
+          <div class="game-selection-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;">
+            <div class="game-card ${selectedGame === 'uno-go' ? 'active' : ''}" data-game="uno-go">
+              <div class="game-card-img" style="height: 60px; background-image: url('https://placehold.co/180x90/701a75/ffffff?text=UNO+GO');"></div>
+              <div class="game-card-title" style="font-size: 11px;">UNO GO</div>
             </div>
-          `;
-        }).join('')}
-      </div>
-    </div>
-
-    <!-- Column 4: Game Settings & Colors -->
-    <div class="lobby-column">
-      <h3>Game Settings</h3>
-      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; flex-grow: 1;">
-        ${selectedGame === 'uno-go' ? `
-          <div class="rules-table-row">
-            <span class="rules-table-label">Rule Set</span>
-            <span class="rules-table-val">Classic</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Draw Card</span>
-            <span class="rules-table-val">Stacking</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Wild Draw</span>
-            <span class="rules-table-val">4 Cards</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Starting Cards</span>
-            <span class="rules-table-val">7</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Turn Timer</span>
-            <span class="rules-table-val">60 sec</span>
-          </div>
-        ` : selectedGame === 'monopoly-go' ? `
-          <div class="rules-table-row">
-            <span class="rules-table-label">Rule Set</span>
-            <span class="rules-table-val">Classic</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Turn Timer</span>
-            <span class="rules-table-val">60 sec</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Starting Money</span>
-            <span class="rules-table-val">$1500</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Free Parking</span>
-            <span class="rules-table-val">House Rule</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Go Money</span>
-            <span class="rules-table-val">$200</span>
+            <div class="game-card ${selectedGame === 'monopoly-go' ? 'active' : ''}" data-game="monopoly-go">
+              <div class="game-card-img" style="height: 60px; background-image: url('https://placehold.co/180x90/1e3a8a/ffffff?text=MONOPOLY');"></div>
+              <div class="game-card-title" style="font-size: 11px;">MONOPOLY</div>
+            </div>
+            <div class="game-card ${selectedGame === 'ludo-go-classic' ? 'active' : ''}" data-game="ludo-go-classic">
+              <div class="game-card-img" style="height: 60px; background-image: url('https://placehold.co/180x90/065f46/ffffff?text=LUDO+GO');"></div>
+              <div class="game-card-title" style="font-size: 11px;">LUDO GO</div>
+            </div>
           </div>
         ` : `
-          <div class="rules-table-row">
-            <span class="rules-table-label">Rule Set</span>
-            <span class="rules-table-val">Classic</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Board Type</span>
-            <span class="rules-table-val">Standard Circular</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Starting Tokens</span>
-            <span class="rules-table-val">4</span>
-          </div>
-          <div class="rules-table-row">
-            <span class="rules-table-label">Turn Timer</span>
-            <span class="rules-table-val">60 sec</span>
+          <!-- Prominent Selected Game Display for Peers -->
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; display: flex; align-items: center; gap: 16px;">
+            <div style="width: 100px; height: 60px; border-radius: 8px; background-size: cover; background-position: center; background-image: url('https://placehold.co/180x90/${selectedGame === 'uno-go' ? '701a75' : selectedGame === 'monopoly-go' ? '1e3a8a' : '065f46'}/ffffff?text=${selectedGame.replace(/-/g, '+').toUpperCase()}');"></div>
+            <div>
+              <h2 style="margin: 0; font-size: 18px; text-transform: uppercase;">${selectedGame.replace(/-/g, ' ')}</h2>
+              <p style="margin: 2px 0 0 0; font-size: 11px; color: var(--text-muted);">Active downloadable module</p>
+            </div>
           </div>
         `}
-        <button class="action-btn" style="width: 100%; margin-top: 14px; background: transparent; border: 1px solid rgba(255,255,255,0.1); color: white; font-size: 12px; padding: 8px;">VIEW RULES</button>
       </div>
 
-      <h3>Avatar Colors</h3>
-      <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 2px;">Choose your pawn color</div>
-      <div class="avatar-colors-grid">
-        ${['#ef4444', '#3b82f6', '#22c55e', '#eab308'].map(col => {
-          const isSelected = gameState.players[currPlayerId]?.color === col;
-          return `
-            <div class="avatar-color-square ${isSelected ? 'active' : ''}" data-color="${col}">
-              <div class="player-pawn-circle" style="background-color: ${col}; width: 24px; height: 24px;"></div>
+      <!-- Download status bars -->
+      <div>
+        <h3 style="margin-bottom: 8px;">Download Modules Progress</h3>
+        <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; display: flex; flex-direction: column; gap: 10px; font-size: 12px;">
+          ${Object.keys(gameState.players).map(pid => {
+            const p = gameState.players[pid];
+            const progress = mockDownloadProgress[pid] || 100;
+            const totalSize = selectedGame === 'uno-go' ? 250 : selectedGame === 'monopoly-go' ? 320 : 180;
+            const currentSize = Math.round((progress / 100) * totalSize);
+            return `
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <div style="display: flex; justify-content: space-between;">
+                  <span style="font-weight: bold;">${p.emojiFace} Player ${pid.substring(1)}</span>
+                  <span style="color: var(--text-muted); font-size: 11px;">${currentSize} MB / ${totalSize} MB (${progress}%)</span>
+                </div>
+                <div class="download-progress-bar-container">
+                  <div class="download-progress-bar" style="width: ${progress}%;"></div>
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Game Rules (directly below) -->
+      <div>
+        <h3 style="margin-bottom: 8px;">Game Rules</h3>
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; font-size: 12px;">
+          ${selectedGame === 'uno-go' ? `
+            <div class="rules-table-row">
+              <span class="rules-table-label">Rule Set</span>
+              <span class="rules-table-val">Classic Uno</span>
             </div>
-          `;
-        }).join('')}
+            <div class="rules-table-row">
+              <span class="rules-table-label">Draw Card Rule</span>
+              <span class="rules-table-val">Stacking Active</span>
+            </div>
+            <div class="rules-table-row">
+              <span class="rules-table-label">Starting Cards</span>
+              <span class="rules-table-val">7 cards</span>
+            </div>
+            <div class="rules-table-row">
+              <span class="rules-table-label">Turn Timer</span>
+              <span class="rules-table-val">60 sec</span>
+            </div>
+          ` : selectedGame === 'monopoly-go' ? `
+            <div class="rules-table-row">
+              <span class="rules-table-label">Rule Set</span>
+              <span class="rules-table-val">Speed Monopoly</span>
+            </div>
+            <div class="rules-table-row">
+              <span class="rules-table-label">Starting Money</span>
+              <span class="rules-table-val">$1500</span>
+            </div>
+            <div class="rules-table-row">
+              <span class="rules-table-label">Free Parking</span>
+              <span class="rules-table-val">No Rent Collect</span>
+            </div>
+            <div class="rules-table-row">
+              <span class="rules-table-label">Go Salary</span>
+              <span class="rules-table-val">$200</span>
+            </div>
+          ` : `
+            <div class="rules-table-row">
+              <span class="rules-table-label">Rule Set</span>
+              <span class="rules-table-val">Circular Ludo</span>
+            </div>
+            <div class="rules-table-row">
+              <span class="rules-table-label">Starting Tokens</span>
+              <span class="rules-table-val">4 tokens</span>
+            </div>
+            <div class="rules-table-row">
+              <span class="rules-table-label">Turn Timer</span>
+              <span class="rules-table-val">60 sec</span>
+            </div>
+          `}
+        </div>
+      </div>
+
+      <!-- Voice and Start Actions -->
+      <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+        <div style="background: rgba(88, 101, 242, 0.08); border: 1px solid rgba(88, 101, 242, 0.2); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #a5b4fc; font-weight: bold;">
+          <span>🔊 pinned voice:</span>
+          <a href="${gameState.discordInviteLink || '#'}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 11px;">Join Discord</a>
+        </div>
+
+        ${isMyHost ? `
+          <button class="btn-start-game-lobby" id="btn-start-game-confirm" style="width: 100%; margin: 0; padding: 12px;">START GAME</button>
+        ` : `
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 10px; padding: 14px; text-align: center; color: var(--text-muted); font-size: 13px; font-weight: bold;">
+            Waiting for Host to Start...
+          </div>
+        `}
       </div>
     </div>
 
-    <!-- Column 5: Chat, Voice & Start -->
-    <div class="lobby-column">
-      <h3>Voice Chat (Discord)</h3>
-      <div style="background: rgba(88, 101, 242, 0.08); border: 1px solid rgba(88, 101, 242, 0.2); border-radius: 10px; padding: 12px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: #a5b4fc; font-weight: bold;">
-        <span>🔊 Pin Voice Link:</span>
-        <a href="${gameState.discordInviteLink || '#'}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 11px;">Join Discord</a>
-      </div>
-
-      <h3>Lobby Chat</h3>
-      <div id="chat-messages" style="flex-grow: 1; height: 180px; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 6px;"></div>
-      <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+    <!-- Floating Chat Toggle Drawer -->
+    <button class="chat-drawer-toggle" id="btn-chat-toggle">◀</button>
+    <div class="chat-drawer" id="chat-drawer">
+      <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">💬 Lobby Chat</h3>
+      <div id="chat-messages" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 12px;"></div>
+      <div style="display: flex; gap: 6px;">
         <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
         <button class="action-btn" id="btn-send-chat" style="padding: 10px 14px; font-size: 13px; margin-right: 0;">Send</button>
       </div>
-
-      ${isMyHost ? `
-        <button class="btn-start-game-lobby" id="btn-start-game-confirm">START GAME</button>
-      ` : `
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 10px; padding: 14px; text-align: center; color: var(--text-muted); font-size: 14px; font-weight: bold;">
-          Waiting for Host to Start...
-        </div>
-      `}
     </div>
   `;
 
@@ -1881,7 +1944,7 @@ function renderLobbyRoom(gameState: EngineState) {
     navigator.clipboard.writeText(`http://${window.location.host}/join/${lobbyId}`);
   });
 
-  document.querySelectorAll('.avatar-color-square').forEach(el => {
+  document.querySelectorAll('.avatar-colors-grid .avatar-color-square').forEach(el => {
     el.addEventListener('click', () => {
       const color = el.getAttribute('data-color');
       if (color) {
@@ -1891,7 +1954,7 @@ function renderLobbyRoom(gameState: EngineState) {
   });
 
   if (isMyHost) {
-    document.querySelectorAll('.game-card').forEach(card => {
+    document.querySelectorAll('.game-selection-grid .game-card').forEach(card => {
       card.addEventListener('click', () => {
         const game = card.getAttribute('data-game');
         if (game) {
@@ -1917,6 +1980,19 @@ function renderLobbyRoom(gameState: EngineState) {
   document.getElementById('btn-send-chat')?.addEventListener('click', sendChat);
   document.getElementById('chat-input')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') sendChat();
+  });
+
+  // Chat Drawer slide toggle bind
+  const chatToggleBtn = document.getElementById('btn-chat-toggle');
+  const chatDrawer = document.getElementById('chat-drawer');
+  chatToggleBtn?.addEventListener('click', () => {
+    chatDrawer?.classList.toggle('active');
+    chatToggleBtn?.classList.toggle('active');
+    if (chatDrawer?.classList.contains('active')) {
+      chatToggleBtn.innerHTML = '▶';
+    } else {
+      chatToggleBtn.innerHTML = '◀';
+    }
   });
 
   const messagesEl = document.getElementById('chat-messages');

@@ -110,9 +110,29 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
     case 'PLAYER_JOINED': {
       const newPid = event.playerId!;
       const isSpec = !!event.payload.isSpectator;
+      
+      let baseColor = event.payload.color || '#3b82f6';
+      if (!isSpec) {
+        const existingColors = Object.values(nextState.players)
+          .filter(p => p.id !== newPid && !p.isSpectator)
+          .map(p => p.color);
+
+        const distinctColors = [
+          '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
+          '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
+        ];
+
+        if (existingColors.includes(baseColor)) {
+          const freeColor = distinctColors.find(c => !existingColors.includes(c));
+          if (freeColor) {
+            baseColor = freeColor;
+          }
+        }
+      }
+
       nextState.players[newPid] = {
         id: newPid,
-        color: event.payload.color || '#3b82f6',
+        color: baseColor,
         skinTone: event.payload.skinTone || 'medium',
         emojiFace: event.payload.emojiFace || '🐼',
         isHost: false,
