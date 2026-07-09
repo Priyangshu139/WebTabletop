@@ -803,7 +803,7 @@ body {
 }
 
 .matchmaking-actions-panel {
-  width: 240px;
+  width: 190px;
   flex-shrink: 0;
 }
 
@@ -833,22 +833,13 @@ body {
     box-sizing: border-box;
   }
 
-  .matchmaking-container {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: center !important;
-    gap: 16px !important;
-    padding: 16px !important;
+  .matchmaking-actions-panel .sidebar-btn {
+    padding: 10px !important;
+    text-align: center !important;
   }
-
-  .matchmaking-actions-panel {
-    max-width: 440px !important;
-    width: 100% !important;
-  }
-
-  .matchmaking-setup-column {
-    max-width: 440px !important;
-    width: 100% !important;
+  
+  .matchmaking-actions-panel .sidebar-btn span {
+    display: none !important;
   }
 
   .lobby-main-display {
@@ -912,15 +903,18 @@ body {
 @media (max-width: 600px) {
   .matchmaking-container {
     flex-direction: column !important;
+    align-items: center !important;
     padding: 16px !important;
     gap: 16px !important;
   }
   
   .matchmaking-actions-panel {
     width: 100% !important;
+    max-width: 440px !important;
   }
   
   .matchmaking-setup-column {
     width: 100% !important;
+    max-width: 440px !important;
   }
 }
