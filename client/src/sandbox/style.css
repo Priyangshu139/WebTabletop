@@ -778,12 +778,41 @@ body {
   height: 100%;
 }
 
+/* PC card size adjustment to reduce empty margins */
+.desktop-matchmaking-layout .avatar-setup-card {
+  max-width: 680px !important;
+  width: 100%;
+  margin: 40px auto;
+}
+
 .mobile-matchmaking-layout {
   display: none;
 }
 
-/* Mobile-Responsive Styling */
-@media (max-width: 768px) {
+.matchmaking-container {
+  display: flex;
+  gap: 24px;
+  max-width: 960px;
+  width: 100%;
+  margin: auto;
+  padding: 24px;
+  box-sizing: border-box;
+  align-items: flex-start;
+}
+
+.matchmaking-actions-panel {
+  width: 240px;
+  flex-shrink: 0;
+}
+
+.matchmaking-setup-column {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Mobile-Responsive Styling (max-width: 960px) */
+@media (max-width: 960px) {
   #app {
     grid-template-columns: 1fr !important;
   }
@@ -847,5 +876,22 @@ body {
   
   .rules-drawer.active {
     left: 0 !important;
+  }
+}
+
+/* Stack mobile layout vertically on phone portrait (screens <= 600px) */
+@media (max-width: 600px) {
+  .matchmaking-container {
+    flex-direction: column !important;
+    padding: 16px !important;
+    gap: 16px !important;
+  }
+  
+  .matchmaking-actions-panel {
+    width: 100% !important;
+  }
+  
+  .matchmaking-setup-column {
+    width: 100% !important;
   }
 }
