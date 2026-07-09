@@ -166,15 +166,15 @@ function renderMatchmaking() {
             </div>
           </div>
 
-          <div style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
-            <button class="sidebar-btn purple" id="mobile-btn-create" style="width: 100%; display: flex; flex-direction: column; text-align: left; padding: 12px; border-radius: 8px; cursor: pointer;">
+          <div class="mobile-actions-btn-group" style="display: flex; flex-direction: column; gap: 8px; width: 100%;">
+            <button class="sidebar-btn purple" id="mobile-btn-create" style="width: 100%; display: flex; flex-direction: column; text-align: left; padding: 8px; border-radius: 8px; cursor: pointer;">
               <strong>NEW LOBBY</strong>
-              <span style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Create a new game lobby</span>
+              <span class="btn-desc" style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Create a new game lobby</span>
             </button>
 
-            <button class="sidebar-btn blue" id="mobile-btn-join" style="width: 100%; display: flex; flex-direction: column; text-align: left; padding: 12px; border-radius: 8px; cursor: pointer;">
+            <button class="sidebar-btn blue" id="mobile-btn-join" style="width: 100%; display: flex; flex-direction: column; text-align: left; padding: 8px; border-radius: 8px; cursor: pointer;">
               <strong>JOIN LOBBY</strong>
-              <span style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Join with code or link</span>
+              <span class="btn-desc" style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Join with code or link</span>
             </button>
           </div>
         </div>

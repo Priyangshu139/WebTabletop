@@ -850,24 +850,28 @@ body {
     max-width: 130px !important;
     box-sizing: border-box !important;
     padding: 10px 8px !important;
-    align-self: flex-start !important; /* key: don't stretch to fill column height */
+    align-self: flex-start !important;
     flex-shrink: 0 !important;
+    height: auto !important;        /* don't stretch to sibling height */
   }
 
-  /* Restore logo but make it compact on landscape */
+  /* Compact logo on landscape */
   .matchmaking-actions-panel .sidebar-logo {
     display: flex !important;
-    margin-bottom: 10px !important;
+    margin-bottom: 8px !important;
     gap: 6px !important;
+    align-items: center !important;
   }
 
   .matchmaking-actions-panel .sidebar-logo svg {
-    width: 20px !important;
-    height: 20px !important;
+    width: 18px !important;
+    height: 18px !important;
+    flex-shrink: 0 !important;
   }
 
   .matchmaking-actions-panel .sidebar-logo h2 {
-    font-size: 13px !important;
+    font-size: 12px !important;
+    margin: 0 !important;
   }
 
   .matchmaking-actions-panel .sidebar-logo p {
@@ -880,15 +884,22 @@ body {
     box-sizing: border-box !important;
   }
 
+  /* Button group wrapper — don't stretch */
+  .mobile-actions-btn-group {
+    height: auto !important;
+    align-self: flex-start !important;
+  }
+
   .matchmaking-actions-panel .sidebar-btn {
     display: block !important;
     width: 100% !important;
-    padding: 8px 4px !important;
+    padding: 7px 4px !important;
     font-size: 10px !important;
     text-align: center !important;
     box-sizing: border-box !important;
-    line-height: 1.3 !important;
-    margin-bottom: 8px !important;
+    line-height: 1.2 !important;
+    height: auto !important;        /* never auto-stretch */
+    flex: none !important;          /* don't grow in flex context */
   }
 
   .matchmaking-actions-panel .sidebar-btn strong {
@@ -896,7 +907,9 @@ body {
     letter-spacing: 0 !important;
     display: block !important;
   }
-  
+
+  /* Hide description text in landscape to keep buttons tiny */
+  .matchmaking-actions-panel .sidebar-btn .btn-desc,
   .matchmaking-actions-panel .sidebar-btn span {
     display: none !important;
   }
