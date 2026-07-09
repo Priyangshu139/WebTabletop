@@ -14,8 +14,12 @@ let spectatingPlayerId = 'P1';
 let timerIntervalId: any = null;
 let lastProcessedEventCount = 0;
 
-const REST_URL = 'http://localhost:3000';
-const WS_URL = 'ws://localhost:3000';
+const backendHost = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') 
+  ? 'localhost:3000' 
+  : `${window.location.hostname}:3000`;
+
+const REST_URL = `http://${backendHost}`;
+const WS_URL = `ws://${backendHost}`;
 
 const app = document.getElementById('app');
 
