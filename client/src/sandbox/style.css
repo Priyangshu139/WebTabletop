@@ -1,17 +1,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap');
 
 :root {
-  --bg-dark: #0a0d14;
-  --sidebar-bg: #0f131c;
-  --panel-bg: #121722;
-  --panel-border: rgba(255, 255, 255, 0.05);
+  --bg-dark: #0f141c;
+  --sidebar-bg: #131a23;
+  --panel-bg: #161e28;
+  --panel-border: rgba(255, 255, 255, 0.07);
   --text-primary: #f8fafc;
-  --text-muted: #64748b;
-  --accent-purple: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
-  --accent-blue: linear-gradient(135deg, #0284c7 0%, #0369a1 100%);
-  --accent-green: linear-gradient(135deg, #22c55e 0%, #15803d 100%);
-  --danger: #ef4444;
-  --ready-green: #22c55e;
+  --text-muted: #8a99ad;
+  --accent-purple: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);
+  --accent-blue: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  --accent-green: linear-gradient(135deg, #10b981 0%, #047857 100%);
+  --danger: #dc2626;
+  --ready-green: #10b981;
 }
 
 body {
@@ -54,7 +54,7 @@ body {
 .sidebar-logo img, .sidebar-logo svg {
   width: 32px;
   height: 32px;
-  fill: #8b5cf6;
+  fill: #818cf8;
 }
 
 .sidebar-logo-text h2 {
@@ -288,8 +288,8 @@ body {
 }
 
 .game-card.active {
-  border: 2px solid #8b5cf6;
-  box-shadow: 0 0 15px rgba(139, 92, 246, 0.35);
+  border: 2px solid #4f46e5;
+  box-shadow: 0 0 15px rgba(79, 70, 229, 0.35);
 }
 
 /* Download Progress row */
@@ -426,7 +426,7 @@ body {
 .dice-3d {
   width: 68px;
   height: 68px;
-  background: linear-gradient(135deg, #a855f7, #6366f1);
+  background: var(--accent-purple);
   border: 2px solid rgba(255, 255, 255, 0.25);
   border-radius: 16px;
   display: flex;
@@ -435,7 +435,7 @@ body {
   font-size: 34px;
   font-weight: bold;
   color: white;
-  box-shadow: 0 10px 25px rgba(99, 102, 241, 0.35);
+  box-shadow: 0 10px 25px rgba(79, 70, 229, 0.35);
   cursor: none;
   user-select: none;
   touch-action: none;

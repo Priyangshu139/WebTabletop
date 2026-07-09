@@ -565,7 +565,7 @@ async function initializeSync(
         <!-- Column 1: Config & Roster -->
         <div class="sandbox-panel">
           <div class="title-header">
-            <h1>Lobby Code: <span style="color: #a855f7;">${lobbyId}</span></h1>
+            <h1>Lobby Code: <span style="color: #60a5fa;">${lobbyId}</span></h1>
             <p style="color: var(--text-muted); margin: 0;">Seat: <strong style="color: white;">${playerId}</strong> (${isHost ? 'HOST' : 'PEER'})</p>
           </div>
 
@@ -770,7 +770,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
     <!-- Column 1: Config & Roster -->
     <div class="sandbox-panel">
       <div class="title-header">
-        <h1>Lobby Code: <span style="color: #a855f7;">${lobbyId}</span></h1>
+        <h1>Lobby Code: <span style="color: #60a5fa;">${lobbyId}</span></h1>
         <p style="color: var(--text-muted); margin: 0;">Seat: <strong style="color: white;">${playerId}</strong> (${isHost ? 'HOST' : 'PEER'})</p>
       </div>
 
@@ -1907,7 +1907,7 @@ function renderLobbyRoom(gameState: EngineState) {
               <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
                 <span class="pulse-green-dot"></span> LOBBY CODE
               </div>
-              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px; color: #c084fc; text-shadow: 0 0 10px rgba(168,85,247,0.4);">${lobbyId}</h1>
+              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px; color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.3);">${lobbyId}</h1>
             </div>
             <button class="action-btn" id="btn-copy-code" style="padding: 8px 12px; margin: 0; background: #121722; font-size: 14px;">📋 Copy</button>
           </div>
@@ -1989,7 +1989,7 @@ function renderLobbyRoom(gameState: EngineState) {
       <!-- Download status bars wrapped in Accordion Details -->
       <div>
         <details style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 10px; padding: 10px;">
-          <summary style="font-weight: bold; cursor: pointer; color: #a855f7; list-style: none; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
+          <summary style="font-weight: bold; cursor: pointer; color: #60a5fa; list-style: none; display: flex; justify-content: space-between; align-items: center; font-size: 13px;">
             <span>📦 Download Modules Status</span>
             <span style="font-size: 11px; opacity: 0.8;">▼ Toggle</span>
           </summary>
@@ -2020,7 +2020,7 @@ function renderLobbyRoom(gameState: EngineState) {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
           <h3 style="margin: 0;">Game Rules</h3>
           ${isMyHost ? `
-            <button class="action-btn" id="btn-edit-rules" style="padding: 4px 10px; margin: 0; font-size: 11px; background: rgba(168,85,247,0.15); border: 1px solid #a855f7; color: #c084fc; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 4px;">✏️ Edit Rules</button>
+            <button class="action-btn" id="btn-edit-rules" style="padding: 4px 10px; margin: 0; font-size: 11px; background: rgba(59,130,246,0.1); border: 1px solid #3b82f6; color: #60a5fa; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 4px;">✏️ Edit Rules</button>
           ` : ''}
         </div>
         <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; font-size: 12px;">
