@@ -102,31 +102,13 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       nextState.turn.currentPlayerId = firstActive;
 
       if (activeGame === 'uno-go') {
-        const colors = ['red', 'blue', 'green', 'yellow'];
-        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'SKIP', 'REVERSE', 'DRAW_TWO'];
-        let idCounter = 0;
-        const unoDeck: any[] = [];
-        const unoDiscardPile: any[] = [];
-        colors.forEach(col => {
-          values.forEach(val => {
-            unoDeck.push({ id: `c-${idCounter++}`, color: col, value: val });
-          });
-        });
-        unoDeck.sort(() => Math.random() - 0.5);
-        unoDiscardPile.push(unoDeck.shift());
-
-        nextState.moduleState.unoDeck = unoDeck;
-        nextState.moduleState.unoDiscardPile = unoDiscardPile;
+        nextState.moduleState.unoDeck = event.payload.unoDeck;
+        nextState.moduleState.unoDiscardPile = event.payload.unoDiscardPile;
 
         Object.keys(nextState.players).forEach(pid => {
           const p = nextState.players[pid];
           if (!p.isSpectator) {
-            p.hand = [];
-            for (let i = 0; i < 7; i++) {
-              if (unoDeck.length > 0) {
-                p.hand.push(unoDeck.shift());
-              }
-            }
+            p.hand = event.payload.startHands?.[pid] || [];
           }
         });
       } else {

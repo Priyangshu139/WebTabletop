@@ -50,9 +50,55 @@ export function validateCommand(
       }];
     }
     if (command.type === 'START_GAME') {
+      const activeGame = state.activeModule || 'ludo-go-classic';
+      const payload: any = {};
+
+      if (activeGame === 'uno-go') {
+        const colors = ['red', 'blue', 'green', 'yellow'];
+        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'SKIP', 'REVERSE', 'DRAW_TWO'];
+        let idCounter = 0;
+        const unoDeck: any[] = [];
+        const unoDiscardPile: any[] = [];
+        colors.forEach(col => {
+          values.forEach(val => {
+            unoDeck.push({ id: `c-${idCounter++}`, color: col, value: val });
+          });
+        });
+
+        // Deterministic shuffle using Fisher-Yates with the passed PRNG
+        for (let i = unoDeck.length - 1; i > 0; i--) {
+          const j = Math.floor(prng.next() * (i + 1));
+          const temp = unoDeck[i];
+          unoDeck[i] = unoDeck[j];
+          unoDeck[j] = temp;
+        }
+
+        unoDiscardPile.push(unoDeck.shift());
+
+        payload.unoDeck = unoDeck;
+        payload.unoDiscardPile = unoDiscardPile;
+
+        // Deal starting hands deterministically
+        const startHands: Record<string, any[]> = {};
+        const playerIds = Object.keys(state.players);
+        playerIds.forEach(pid => {
+          const p = state.players[pid];
+          if (!p.isSpectator) {
+            startHands[pid] = [];
+            for (let i = 0; i < 7; i++) {
+              if (unoDeck.length > 0) {
+                startHands[pid].push(unoDeck.shift());
+              }
+            }
+          }
+        });
+        payload.startHands = startHands;
+      }
+
       return [{
         type: 'GAME_STARTED',
         playerId: command.playerId,
+        payload,
         timestamp: Date.now()
       }];
     }
