@@ -41,7 +41,7 @@ For complex page structures where PC and mobile designs differ fundamentally, re
   - Card Merging: Style the Avatar Card (`border-bottom: none; border-bottom-left-radius: 0; border-bottom-right-radius: 0;`) and the Replay Card below it (`margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; border-top: 1px solid var(--panel-border);`) to touch and merge into a single unified card appearance.
 - **Mobile Layout (`.mobile-matchmaking-layout`)**:
   - Hides Left Sidebar.
-  - **Landscape Phones (600px - 960px)**: Displays side-by-side using percentages: compact actions panel on the left (`width: 25%`), setup columns on the right (`width: 72%`), and a gap of `3%`. Hides button description sub-text (`span { display: none; }`) and centers text with tight padding (`10px`) to keep buttons compact.
+  - **Landscape Phones (600px - 960px)**: Displays side-by-side using percentages: compact actions panel on the left (`width: 18%`, `min-width: 90px`), setup columns on the right (`width: 79%`), and a gap of `3%`. Hides button description sub-text (`span { display: none; }`) and styles buttons with `box-sizing: border-box` to prevent horizontal scrolling overflow.
   - **Portrait Phones (<= 600px)**: Stacks vertically (`flex-direction: column !important; align-items: center !important;`) with a maximum card width of `440px`.
 
 ---
