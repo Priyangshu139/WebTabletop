@@ -1864,9 +1864,14 @@ function renderLobbyRoom(gameState: EngineState) {
 
   mainContent.classList.remove('gameplay-active');
   mainContent.style.display = 'flex';
-  mainContent.style.gap = '20px';
+  mainContent.style.gap = '32px';
   mainContent.style.justifyContent = 'center';
-  mainContent.style.alignItems = 'flex-start';
+  mainContent.style.alignItems = 'stretch';
+  mainContent.style.padding = '32px 24px';
+  mainContent.style.boxSizing = 'border-box';
+  mainContent.style.height = 'calc(100vh - 48px)';
+  mainContent.style.maxWidth = '1440px';
+  mainContent.style.margin = '0 auto';
   
   const lobbyId = syncEngine?.lobbyId || 'LOBBY';
   const currPlayerId = activeSeatId;
@@ -1898,7 +1903,7 @@ function renderLobbyRoom(gameState: EngineState) {
 
   mainContent.innerHTML = `
     <!-- Panel 1: Lobby Info & Players Roster -->
-    <div class="sandbox-panel" style="width: 360px; flex-shrink: 0; min-height: 520px; display: flex; flex-direction: column; gap: 16px;">
+    <div class="sandbox-panel" style="flex: 1; max-width: 460px; min-height: 600px; display: flex; flex-direction: column; gap: 20px;">
       <div>
         <h3 style="margin-top: 0; margin-bottom: 8px;">Lobby Details</h3>
         <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 14px;">
@@ -1953,7 +1958,7 @@ function renderLobbyRoom(gameState: EngineState) {
     </div>
 
     <!-- Panel 2: Selected Game & Rules -->
-    <div class="sandbox-panel" style="width: 500px; flex-shrink: 0; min-height: 520px; display: flex; flex-direction: column; gap: 16px;">
+    <div class="sandbox-panel" style="flex: 1.5; max-width: 760px; min-height: 600px; display: flex; flex-direction: column; gap: 20px;">
       <div>
         <h3 style="margin-top: 0; margin-bottom: 8px;">Selected Game Module</h3>
         
