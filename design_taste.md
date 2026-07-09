@@ -31,7 +31,7 @@ To keep panels from floating with awkward gaps or looking squished, use these re
 - **PC/Desktop View**: Use `display: flex; gap: 32px; justify-content: center; align-items: stretch;`. Set the container height to `calc(100vh - 48px)` so that panels occupy the entire vertical screen area.
   - **Panel 1 (Lobby seats)**: `flex: 1; max-width: 460px;`
   - **Panel 2 (Game & Rules)**: `flex: 1.5; max-width: 760px;`
-- **Mobile View (<= 768px)**: Force `flex-direction: column !important; height: auto !important;` so that panels stack vertically and scroll naturally.
+- **Mobile View (<= 960px)**: Force `flex-direction: column !important; height: auto !important;` so that panels stack vertically (top and bottom) and scroll naturally on both portrait and landscape phones.
 
 ### 2.2. Matchmaking / Welcome Screen (PC vs Phone Isolated Views)
 For complex page structures where PC and mobile designs differ fundamentally, render both layouts and show/hide them using CSS class targets:
