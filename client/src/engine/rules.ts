@@ -440,7 +440,7 @@ function validateUnoCommand(state: EngineState, command: EngineCommand, _prng: P
       const topCard = discard[discard.length - 1];
 
       if (topCard) {
-        const matchesColor = card.color === topCard.color;
+        const matchesColor = card.color === 'wild' || topCard.color === 'wild' || card.color === topCard.color;
         const matchesValue = card.value === topCard.value;
         if (!matchesColor && !matchesValue) {
           throw new Error('Card color or value does not match discard pile.');

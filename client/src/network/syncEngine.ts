@@ -87,6 +87,7 @@ export class SyncEngine {
 
     // 2. WebRTC Handlers
     this.webrtcManager.onMessage = (senderId, data) => {
+      console.log(`[WebRTC] Received message from ${senderId} of type ${data.type}`);
       if (data.type === 'COMMAND') {
         if (this.isHost) {
           this.executeAuthoritativeCommand(data.command, senderId);
@@ -94,6 +95,7 @@ export class SyncEngine {
       } else if (data.type === 'EVENTS') {
         if (!this.isHost) {
           const events: EngineEvent[] = data.events;
+          console.log(`[Peer] Applying authoritative events:`, events);
           events.forEach(evt => {
             this.state = applyEvent(this.state, evt);
           });
@@ -101,6 +103,7 @@ export class SyncEngine {
         }
       } else if (data.type === 'SYNC_STATE') {
         if (!this.isHost) {
+          console.log(`[Peer] Received initial SYNC_STATE`);
           this.state = data.state;
           if (data.chatHistory) {
             this.chatHistory = data.chatHistory;
@@ -221,9 +224,12 @@ export class SyncEngine {
   }
 
   private executeAuthoritativeCommand(command: EngineCommand, senderId: string) {
+    console.log(`[Host] Received command from ${senderId}:`, command);
+    console.log(`[Host] Current turn player: ${this.state.turn.currentPlayerId}`);
     try {
       const prng = new PRNG(this.state.seed, this.state.prngState);
       const events = validateCommand(this.state, command, prng);
+      console.log(`[Host] Command validated successfully, generated events:`, events);
 
       events.forEach(evt => {
         this.state = applyEvent(this.state, evt);
@@ -241,6 +247,7 @@ export class SyncEngine {
       this.saveStateToBackend();
 
     } catch (err: any) {
+      console.error(`[Host] Validation failed for command from ${senderId}:`, err.message);
       if (senderId === this.playerId) {
         this.onError?.(err.message);
       } else {

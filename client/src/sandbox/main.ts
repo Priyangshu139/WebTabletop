@@ -882,12 +882,7 @@ async function initializeSync(
       updateUI(updatedState);
     },
     (errorMsg) => {
-      const errBox = document.getElementById('error-box');
-      if (errBox) {
-        errBox.innerText = `Engine Validation Error: ${errorMsg}`;
-        errBox.style.display = 'block';
-        setTimeout(() => { errBox.style.display = 'none'; }, 4000);
-      }
+      triggerFloatingAlert(`Error: ${errorMsg}`);
     },
     (chat) => {
       appendChatMessage(chat);
@@ -1823,9 +1818,9 @@ function updateUI(gameState: EngineState) {
               return;
             }
 
-            // Check playability
+            // Check playability (Wild cards match any color)
             const topCard = gameState.moduleState.unoDiscardPile?.[gameState.moduleState.unoDiscardPile.length - 1];
-            if (topCard && selectedCard.color !== topCard.color && selectedCard.value !== topCard.value) {
+            if (topCard && selectedCard.color !== 'wild' && topCard.color !== 'wild' && selectedCard.color !== topCard.color && selectedCard.value !== topCard.value) {
               // Unplayable — shake animation
               cardEl.style.animation = 'cardShakeReject 0.5s ease';
               cardEl.addEventListener('animationend', () => { cardEl.style.animation = ''; }, { once: true });
