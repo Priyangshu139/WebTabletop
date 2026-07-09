@@ -771,26 +771,8 @@ body {
   color: #818cf8;
 }
 
-.matchmaking-container {
-  display: flex;
-  gap: 24px;
-  max-width: 960px;
-  width: 100%;
-  margin: auto;
-  padding: 24px;
-  box-sizing: border-box;
-  align-items: flex-start;
-}
-
-.matchmaking-actions-panel {
-  width: 280px;
-  flex-shrink: 0;
-}
-
-.matchmaking-setup-column {
-  flex-grow: 1;
-  display: flex;
-  flex-direction: column;
+.mobile-only-actions-panel {
+  display: none;
 }
 
 /* Mobile-Responsive Styling */
@@ -803,18 +785,39 @@ body {
     display: none !important;
   }
 
-  .matchmaking-container {
-    flex-direction: column !important;
+  .mobile-only-actions-panel {
+    display: block !important;
+    width: 100% !important;
+    box-sizing: border-box;
+    margin-bottom: 16px;
+  }
+
+  /* Make the load replay container look like a separate panel on mobile */
+  .avatar-setup-card {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  /* Style the avatar selectors block as a separate card on mobile */
+  .avatar-setup-card > div:nth-child(2) {
+    background: var(--panel-bg) !important;
+    border: 1px solid var(--panel-border) !important;
+    border-radius: 12px !important;
     padding: 16px !important;
-    gap: 16px !important;
+    margin-bottom: 16px !important;
   }
-  
-  .matchmaking-actions-panel {
-    width: 100% !important;
-  }
-  
-  .matchmaking-setup-column {
-    width: 100% !important;
+
+  /* Style the load replay block as a separate card below it on mobile */
+  .load-replay-container {
+    border-top: none !important;
+    padding-top: 16px !important;
+    margin-top: 16px !important;
+    background: var(--panel-bg) !important;
+    border: 1px solid var(--panel-border) !important;
+    border-radius: 12px !important;
+    padding: 16px !important;
   }
 
   .lobby-main-display {
