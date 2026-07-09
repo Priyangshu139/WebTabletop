@@ -89,9 +89,10 @@ function renderMatchmaking() {
     </div>
 
     <!-- Main Content Area -->
-    <div class="lobby-main-display" id="lobby-main-content">
+    <div class="lobby-main-display" id="lobby-main-content" style="display: flex; gap: 24px; justify-content: center; align-items: flex-start; max-width: 1100px; margin: auto; padding: 24px; box-sizing: border-box;">
+      
       <!-- Welcome & Setup pane -->
-      <div class="sandbox-panel" style="width: 100%; max-width: 500px; margin: auto; box-sizing: border-box;">
+      <div class="sandbox-panel" style="width: 100%; max-width: 500px; box-sizing: border-box;">
         <div class="title-header">
           <h1>Configure Avatar Profile</h1>
           <p style="color: var(--text-muted); margin: 0;">Set up your seated avatar look before joining a room.</p>
@@ -136,13 +137,29 @@ function renderMatchmaking() {
               }).join('')}
             </div>
           </div>
+        </div>
+      </div>
+      
+      <!-- Lobby actions and Replay container -->
+      <div class="sandbox-panel" style="width: 100%; max-width: 440px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
+        <div>
+          <h3 style="margin-top: 0; margin-bottom: 12px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-size: 11px;">Select Lobby Action</h3>
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="sidebar-btn purple" id="mobile-btn-create" style="width: 100%; margin: 0; padding: 14px;">
+              <strong>NEW LOBBY</strong>
+              <span style="font-size: 11px; opacity: 0.85;">Create a new game lobby</span>
+            </button>
+            <button class="sidebar-btn blue" id="mobile-btn-join" style="width: 100%; margin: 0; padding: 14px;">
+              <strong>JOIN LOBBY</strong>
+              <span style="font-size: 11px; opacity: 0.85;">Join with code or link</span>
+            </button>
           </div>
         </div>
 
-        <div style="border-bottom: 1px solid var(--panel-border); padding-bottom: 14px;">
-          <h3>Load Event-Sourced Replay</h3>
-          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 6px 0;">Step through match event history.</p>
-          <input type="file" id="input-upload-replay" accept=".json" style="background: #121722; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; width: 100%;">
+        <div style="border-top: 1px solid var(--panel-border); padding-top: 16px;">
+          <h3 style="margin-top: 0; margin-bottom: 6px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-size: 11px;">Load Event-Sourced Replay</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0;">Step through match event history.</p>
+          <input type="file" id="input-upload-replay" accept=".json" style="background: #121722; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box;">
         </div>
 
         <div class="error-toast" id="matchmaking-error"></div>
@@ -151,7 +168,7 @@ function renderMatchmaking() {
   `;
 
   // Bind Sidebar and welcome setup listeners
-  document.getElementById('sidebar-btn-create')?.addEventListener('click', async () => {
+  const handleCreateLobby = async () => {
     showError('');
     const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
     if (actionsContainer) actionsContainer.style.display = 'none';
@@ -168,13 +185,19 @@ function renderMatchmaking() {
       showError(`Failed to create lobby: ${err.message}`);
       if (actionsContainer) actionsContainer.style.display = 'block';
     }
-  });
+  };
 
-  document.getElementById('sidebar-btn-join')?.addEventListener('click', () => {
+  document.getElementById('sidebar-btn-create')?.addEventListener('click', handleCreateLobby);
+  document.getElementById('mobile-btn-create')?.addEventListener('click', handleCreateLobby);
+
+  const handleJoinLobby = () => {
     const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
     if (actionsContainer) actionsContainer.style.display = 'none';
     renderJoinCodePane();
-  });
+  };
+
+  document.getElementById('sidebar-btn-join')?.addEventListener('click', handleJoinLobby);
+  document.getElementById('mobile-btn-join')?.addEventListener('click', handleJoinLobby);
 
   document.getElementById('avatar-emoji')?.addEventListener('change', saveAvatarTraits);
   document.getElementById('avatar-skin')?.addEventListener('change', saveAvatarTraits);
