@@ -982,9 +982,29 @@ body {
     gap: 16px !important;
   }
   
-  .matchmaking-actions-panel {
+  .sandbox-panel.matchmaking-actions-panel {
     width: 100% !important;
     max-width: 440px !important;
+    height: auto !important;
+    align-self: center !important;
+    padding: 16px !important;
+  }
+
+  /* Restore logo and button descriptions in portrait */
+  .matchmaking-actions-panel .sidebar-logo {
+    display: flex !important;
+    margin-bottom: 16px !important;
+  }
+
+  .matchmaking-actions-panel .sidebar-btn {
+    padding: 12px !important;
+    font-size: 14px !important;
+    text-align: left !important;
+  }
+
+  .matchmaking-actions-panel .sidebar-btn .btn-desc,
+  .matchmaking-actions-panel .sidebar-btn span {
+    display: block !important;
   }
   
   .matchmaking-setup-column {
