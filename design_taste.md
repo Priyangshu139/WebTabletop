@@ -41,7 +41,7 @@ For complex page structures where PC and mobile designs differ fundamentally, re
   - Card Merging: Style the Avatar Card (`border-bottom: none; border-bottom-left-radius: 0; border-bottom-right-radius: 0;`) and the Replay Card below it (`margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; border-top: 1px solid var(--panel-border);`) to touch and merge into a single unified card appearance.
 - **Mobile Layout (`.mobile-matchmaking-layout`)**:
   - Hides Left Sidebar.
-  - **Landscape Phones (600px - 960px)**: Displays side-by-side: compact actions panel on the left (shrunk to `190px` width) and setup columns on the right. Hides button description sub-text (`span { display: none; }`) and centers text with tight padding (`10px`) to keep buttons compact.
+  - **Landscape Phones (600px - 960px)**: Displays side-by-side using percentages: compact actions panel on the left (`width: 25%`), setup columns on the right (`width: 72%`), and a gap of `3%`. Hides button description sub-text (`span { display: none; }`) and centers text with tight padding (`10px`) to keep buttons compact.
   - **Portrait Phones (<= 600px)**: Stacks vertically (`flex-direction: column !important; align-items: center !important;`) with a maximum card width of `440px`.
 
 ---
@@ -136,8 +136,8 @@ When hovering elements, keep animations subtle to feel premium:
 }
 ```
 
-### 3.6. Mobile Drawers & Viewports (`100dvh` & `320px` Width)
-When building full-height drawer overlays on mobile devices, use the dynamic viewport height `100dvh` (rather than standard `100vh`) to prevent inputs or buttons at the bottom (like Chat Send or Rule Save/Cancel) from being pushed off-screen. Additionally, configure drawer widths to `320px` on mobile viewports so that they only occupy a portion of the screen, leaving plenty of space for the main UI to breathe.
+### 3.6. Mobile Drawers & Viewports (`100dvh` & `45%` Width)
+When building full-height drawer overlays on mobile devices, use the dynamic viewport height `100dvh` (rather than standard `100vh`) to prevent inputs or buttons at the bottom (like Chat Send or Rule Save/Cancel) from being pushed off-screen. Additionally, configure drawer widths to `45%` on mobile viewports so that they only occupy a portion of the screen, leaving plenty of space for the main UI to breathe.
 ```css
 .chat-drawer, .rules-drawer {
   height: 100vh;
@@ -146,10 +146,11 @@ When building full-height drawer overlays on mobile devices, use the dynamic vie
 
 @media (max-width: 960px) {
   .chat-drawer {
-    width: 320px !important;
-    right: -320px !important;
+    width: 45% !important;
+    right: -45% !important;
     height: 100dvh !important;
     padding: 16px 12px !important;
+    min-width: 260px !important;
   }
   
   .chat-drawer.active {
@@ -157,14 +158,15 @@ When building full-height drawer overlays on mobile devices, use the dynamic vie
   }
 
   .chat-drawer-toggle.active {
-    right: calc(320px - 36px) !important;
+    right: calc(45% - 36px) !important;
   }
 
   .rules-drawer {
-    width: 320px !important;
-    left: -320px !important;
+    width: 45% !important;
+    left: -45% !important;
     height: 100dvh !important;
     padding: 16px 12px !important;
+    min-width: 260px !important;
   }
   
   .rules-drawer.active {
