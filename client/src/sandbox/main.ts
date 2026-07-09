@@ -434,7 +434,11 @@ function renderMatchmaking() {
 
 function renderJoinCodePane() {
   showError('');
-  const mainContent = document.getElementById('lobby-main-content');
+  let mainContent = document.querySelector('.desktop-matchmaking-layout .lobby-main-display') as HTMLElement;
+  const isMobile = window.innerWidth <= 768;
+  if (!mainContent || isMobile) {
+    mainContent = document.querySelector('.mobile-matchmaking-layout .matchmaking-setup-column') as HTMLElement;
+  }
   if (!mainContent) return;
 
   mainContent.innerHTML = `
@@ -451,6 +455,7 @@ function renderJoinCodePane() {
         </div>
 
         <button class="action-btn" id="btn-submit-join-lobby" style="padding: 12px; font-size: 14px; font-weight: bold; background: #3b82f6; color: white; border: none; border-radius: 8px; cursor: pointer; transition: opacity 0.2s; margin-top: 6px;" onmouseover="this.style.opacity='0.9'" onmouseout="this.style.opacity='1'">Join Lobby</button>
+        <button class="action-btn" id="btn-cancel-join" style="padding: 10px; font-size: 13px; background: transparent; border: 1px solid var(--panel-border); color: var(--text-muted); border-radius: 8px; cursor: pointer; margin-top: 4px;">Cancel</button>
       </div>
     </div>
   `;
@@ -484,6 +489,9 @@ function renderJoinCodePane() {
   };
 
   document.getElementById('btn-submit-join-lobby')?.addEventListener('click', submitJoin);
+  document.getElementById('btn-cancel-join')?.addEventListener('click', () => {
+    renderMatchmaking();
+  });
   document.getElementById('join-lobby-code-input')?.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') submitJoin();
   });
