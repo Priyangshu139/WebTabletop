@@ -834,15 +834,20 @@ body {
   }
 
   .lobby-main-display {
-    flex-direction: column !important;
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: wrap !important;
+    justify-content: center !important;
+    align-items: flex-start !important;
     height: auto !important;
-    align-items: stretch !important;
+    min-height: 100dvh !important;
     overflow-y: auto !important;
-    padding: 16px !important;
-    gap: 16px !important;
+    padding: 24px 16px !important;
+    gap: 20px !important;
   }
 
   .sandbox-panel {
+    flex: 1 1 320px !important;
     max-width: 100% !important;
     min-height: auto !important;
     padding: 16px !important;
@@ -854,8 +859,8 @@ body {
 
   /* Chat Drawer adjustments on phone */
   .chat-drawer {
-    width: 100% !important;
-    right: -100% !important;
+    width: 75% !important;
+    right: -75% !important;
     height: 100dvh !important;
     padding: 16px 12px !important;
   }
@@ -869,13 +874,13 @@ body {
   }
   
   .chat-drawer-toggle.active {
-    right: calc(100% - 36px) !important;
+    right: calc(75% - 36px) !important;
   }
 
   /* Rules Drawer adjustments on phone */
   .rules-drawer {
-    width: 100% !important;
-    left: -100% !important;
+    width: 75% !important;
+    left: -75% !important;
     height: 100dvh !important;
     padding: 16px 12px !important;
   }
