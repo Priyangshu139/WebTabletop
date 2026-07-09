@@ -2054,21 +2054,21 @@ function renderLobbyRoom(gameState: EngineState) {
     <div class="sandbox-panel" style="flex: 1; max-width: 460px; min-height: 600px; display: flex; flex-direction: column; gap: 20px;">
       <div>
         <h3 style="margin-top: 0; margin-bottom: 8px;">Lobby Details</h3>
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 14px;">
-          <div class="code-panel">
+        <div style="background: #1e293b; border: 1.5px solid #3b82f6; border-radius: 12px; padding: 16px; box-shadow: 0 8px 20px rgba(0,0,0,0.25);">
+          <div class="code-panel" style="display: flex; align-items: center; justify-content: space-between;">
             <div>
-              <div style="font-size: 11px; color: var(--text-muted); font-weight: bold; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+              <div style="font-size: 11px; color: #94a3b8; font-weight: bold; margin-bottom: 6px; display: flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
                 <span class="pulse-green-dot"></span> LOBBY CODE
               </div>
-              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1px; color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.3);">${lobbyId}</h1>
+              <h1 style="margin: 0; font-size: 26px; font-weight: bold; letter-spacing: 1.5px; color: #60a5fa; text-shadow: 0 0 10px rgba(96,165,250,0.3); background: rgba(96, 165, 250, 0.1); border: 1px dashed rgba(96, 165, 250, 0.4); padding: 4px 10px; border-radius: 6px; display: inline-block;">${lobbyId}</h1>
             </div>
-            <button class="action-btn" id="btn-copy-code" style="padding: 8px 12px; margin: 0; background: #121722; font-size: 14px;">📋 Copy</button>
+            <button class="action-btn" id="btn-copy-code" style="padding: 10px 16px; margin: 0; background: #2563eb; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 13px; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">📋 Copy</button>
           </div>
-          <div style="margin-top: 12px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.04); padding-top: 8px;">
-            <div style="color: var(--text-muted); margin-bottom: 2px;">LOBBY LINK</div>
-            <div style="display: flex; justify-content: space-between; align-items: center;">
-              <span style="color: #60a5fa; font-weight: bold; font-family: monospace;">tbl.top/join/${lobbyId}</span>
-              <button class="action-btn" id="btn-copy-link" style="padding: 4px 8px; margin: 0; font-size: 11px; background: #121722;">Copy</button>
+          <div style="margin-top: 14px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+            <div style="color: #94a3b8; margin-bottom: 6px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">LOBBY LINK</div>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px;">
+              <span style="color: #60a5fa; font-weight: bold; font-family: monospace; background: rgba(15, 23, 42, 0.6); padding: 6px 12px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.05); flex-grow: 1; overflow-x: auto; white-space: nowrap;">tbl.top/join/${lobbyId}</span>
+              <button class="action-btn" id="btn-copy-link" style="padding: 8px 14px; margin: 0; font-size: 12px; background: #2563eb; color: white; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: background 0.2s;" onmouseover="this.style.background='#1d4ed8'" onmouseout="this.style.background='#2563eb'">Copy</button>
             </div>
           </div>
         </div>
