@@ -116,55 +116,59 @@ function renderMatchmaking() {
       </div>
 
       <!-- Welcome & Setup pane -->
-      <div class="sandbox-panel avatar-setup-card" style="width: 100%; max-width: 500px; margin: auto; box-sizing: border-box;">
-        <div class="title-header">
-          <h1>Configure Avatar Profile</h1>
-          <p style="color: var(--text-muted); margin: 0;">Set up your seated avatar look before joining a room.</p>
-        </div>
+      <div class="matchmaking-setup-card-wrapper" style="width: 100%; max-width: 500px; margin: auto; box-sizing: border-box; display: flex; flex-direction: column;">
+        
+        <!-- Part 1: Avatar Profile Card -->
+        <div class="sandbox-panel avatar-profile-card" style="width: 100%; box-sizing: border-box;">
+          <div class="title-header">
+            <h1>Configure Avatar Profile</h1>
+            <p style="color: var(--text-muted); margin: 0;">Set up your seated avatar look before joining a room.</p>
+          </div>
 
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-size: 12px; color: var(--text-muted);">Emoji Head:</label>
-              <select id="avatar-emoji" style="background: #121722; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border);">
-                <option value="🦊" ${traits.emojiFace === '🦊' ? 'selected' : ''}>🦊 Fox</option>
-                <option value="🐼" ${traits.emojiFace === '🐼' ? 'selected' : ''}>🐼 Panda</option>
-                <option value="🐸" ${traits.emojiFace === '🐸' ? 'selected' : ''}>🐸 Frog</option>
-                <option value="🐱" ${traits.emojiFace === '🐱' ? 'selected' : ''}>🐱 Cat</option>
-                <option value="🐯" ${traits.emojiFace === '🐯' ? 'selected' : ''}>🐯 Tiger</option>
-                <option value="🦁" ${traits.emojiFace === '🦁' ? 'selected' : ''}>🦁 Lion</option>
-                <option value="🤖" ${traits.emojiFace === '🤖' ? 'selected' : ''}>🤖 Robot</option>
-              </select>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: var(--text-muted);">Emoji Head:</label>
+                <select id="avatar-emoji" style="background: #121722; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border);">
+                  <option value="🦊" ${traits.emojiFace === '🦊' ? 'selected' : ''}>🦊 Fox</option>
+                  <option value="🐼" ${traits.emojiFace === '🐼' ? 'selected' : ''}>🐼 Panda</option>
+                  <option value="🐸" ${traits.emojiFace === '🐸' ? 'selected' : ''}>🐸 Frog</option>
+                  <option value="🐱" ${traits.emojiFace === '🐱' ? 'selected' : ''}>🐱 Cat</option>
+                  <option value="🐯" ${traits.emojiFace === '🐯' ? 'selected' : ''}>🐯 Tiger</option>
+                  <option value="🦁" ${traits.emojiFace === '🦁' ? 'selected' : ''}>🦁 Lion</option>
+                  <option value="🤖" ${traits.emojiFace === '🤖' ? 'selected' : ''}>🤖 Robot</option>
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: var(--text-muted);">Skin Tone:</label>
+                <select id="avatar-skin" style="background: #121722; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border);">
+                  <option value="light" ${traits.skinTone === 'light' ? 'selected' : ''}>Light</option>
+                  <option value="medium" ${traits.skinTone === 'medium' ? 'selected' : ''}>Medium</option>
+                  <option value="dark" ${traits.skinTone === 'dark' ? 'selected' : ''}>Dark</option>
+                </select>
+              </div>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-size: 12px; color: var(--text-muted);">Skin Tone:</label>
-              <select id="avatar-skin" style="background: #121722; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border);">
-                <option value="light" ${traits.skinTone === 'light' ? 'selected' : ''}>Light</option>
-                <option value="medium" ${traits.skinTone === 'medium' ? 'selected' : ''}>Medium</option>
-                <option value="dark" ${traits.skinTone === 'dark' ? 'selected' : ''}>Dark</option>
-              </select>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 12px; color: var(--text-muted);">Pawn Base Color:</label>
+              <div class="profile-colors-grid" id="profile-colors-selector">
+                ${[
+                  '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
+                  '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
+                ].map(col => {
+                  const isSelected = traits.color === col;
+                  return `
+                    <div class="avatar-color-square ${isSelected ? 'active' : ''}" data-color="${col}" style="width: 36px; height: 36px;">
+                      <div class="player-pawn-circle" style="background-color: ${col}; width: 20px; height: 20px;"></div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
             </div>
           </div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <label style="font-size: 12px; color: var(--text-muted);">Pawn Base Color:</label>
-            <div class="profile-colors-grid" id="profile-colors-selector">
-              ${[
-                '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
-                '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
-              ].map(col => {
-                const isSelected = traits.color === col;
-                return `
-                  <div class="avatar-color-square ${isSelected ? 'active' : ''}" data-color="${col}" style="width: 36px; height: 36px;">
-                    <div class="player-pawn-circle" style="background-color: ${col}; width: 20px; height: 20px;"></div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
         </div>
 
-        <!-- Load Event-Sourced Replay Box -->
-        <div class="load-replay-container" style="border-top: 1px solid var(--panel-border); padding-top: 20px;">
+        <!-- Part 2: Load Replay Card -->
+        <div class="sandbox-panel load-replay-card" style="width: 100%; box-sizing: border-box;">
           <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 14px; color: white;">Load Event-Sourced Replay</h3>
           <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0;">Step through match event history from a save file.</p>
           <input type="file" id="input-upload-replay" accept=".json" style="background: #121722; border: 1px solid var(--panel-border); padding: 8px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 12px; color: var(--text-muted);">

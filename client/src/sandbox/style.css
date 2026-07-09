@@ -775,6 +775,20 @@ body {
   display: none;
 }
 
+/* Default (PC): Merge the two panels into a single card look */
+.avatar-profile-card {
+  border-bottom: none !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+.load-replay-card {
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  margin-top: 0 !important;
+  border-top: 1px solid var(--panel-border) !important;
+}
+
 /* Mobile-Responsive Styling */
 @media (max-width: 768px) {
   #app {
@@ -792,32 +806,19 @@ body {
     margin-bottom: 16px;
   }
 
-  /* Make the load replay container look like a separate panel on mobile */
-  .avatar-setup-card {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-    padding: 0 !important;
-  }
-
-  /* Style the avatar selectors block as a separate card on mobile */
-  .avatar-setup-card > div:nth-child(2) {
-    background: var(--panel-bg) !important;
-    border: 1px solid var(--panel-border) !important;
-    border-radius: 12px !important;
-    padding: 16px !important;
+  /* Mobile: Separate into two rounded panels with a gap */
+  .avatar-profile-card {
+    border-bottom: 1px solid var(--panel-border) !important;
+    border-bottom-left-radius: 12px !important;
+    border-bottom-right-radius: 12px !important;
     margin-bottom: 16px !important;
   }
 
-  /* Style the load replay block as a separate card below it on mobile */
-  .load-replay-container {
-    border-top: none !important;
-    padding-top: 16px !important;
-    margin-top: 16px !important;
-    background: var(--panel-bg) !important;
-    border: 1px solid var(--panel-border) !important;
-    border-radius: 12px !important;
-    padding: 16px !important;
+  .load-replay-card {
+    border-top-left-radius: 12px !important;
+    border-top-right-radius: 12px !important;
+    margin-top: 0 !important;
+    border-top: 1px solid var(--panel-border) !important;
   }
 
   .lobby-main-display {
