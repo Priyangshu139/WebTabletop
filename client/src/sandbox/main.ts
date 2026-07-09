@@ -1763,6 +1763,101 @@ function startMockDownloads(gameState: EngineState) {
   });
 }
 
+const RULE_CHOICES: Record<string, Record<string, string[]>> = {
+  'uno-go': {
+    unoRuleSet: ['Classic Uno', 'Speed Uno', 'Custom Uno'],
+    unoDrawRule: ['Stacking Active', 'No Stacking', 'Draw to Match'],
+    unoStartingCards: ['7 cards', '5 cards', '10 cards'],
+    unoTurnTimer: ['60 sec', '30 sec', '90 sec', 'Off']
+  },
+  'monopoly-go': {
+    monopolyRuleSet: ['Speed Monopoly', 'Classic Monopoly'],
+    monopolyStartingMoney: ['$1500', '$1000', '$2000'],
+    monopolyFreeParking: ['No Rent Collect', 'Collect $500', 'Jackpot Pool'],
+    monopolyGoSalary: ['$200', '$100', '$300']
+  },
+  'ludo-go-classic': {
+    ludoRuleSet: ['Circular Ludo', 'Classic Ludo'],
+    ludoStartingTokens: ['4 tokens', '2 tokens', '3 tokens'],
+    ludoTurnTimer: ['60 sec', '30 sec', '90 sec', 'Off']
+  }
+};
+
+const RULE_LABELS: Record<string, string> = {
+  unoRuleSet: 'Rule Set',
+  unoDrawRule: 'Draw Card Rule',
+  unoStartingCards: 'Starting Cards',
+  unoTurnTimer: 'Turn Timer',
+  monopolyRuleSet: 'Rule Set',
+  monopolyStartingMoney: 'Starting Money',
+  monopolyFreeParking: 'Free Parking',
+  monopolyGoSalary: 'Go Salary',
+  ludoRuleSet: 'Rule Set',
+  ludoStartingTokens: 'Starting Tokens',
+  ludoTurnTimer: 'Turn Timer'
+};
+
+let tempLobbySettings: Record<string, string> = {};
+
+function cycleRuleValue(gameKey: string, ruleKey: string, direction: 'forward' | 'backward') {
+  const choices = RULE_CHOICES[gameKey]?.[ruleKey];
+  if (!choices) return;
+  
+  const currentVal = tempLobbySettings[ruleKey];
+  let currentIndex = choices.indexOf(currentVal);
+  if (currentIndex === -1) currentIndex = 0;
+  
+  if (direction === 'forward') {
+    currentIndex = (currentIndex + 1) % choices.length;
+  } else {
+    currentIndex = (currentIndex - 1 + choices.length) % choices.length;
+  }
+  
+  tempLobbySettings[ruleKey] = choices[currentIndex];
+  renderRulesEditContainer(gameKey);
+}
+
+function renderRulesEditContainer(gameKey: string) {
+  const container = document.getElementById('rules-edit-container');
+  if (!container) return;
+  
+  const rules = RULE_CHOICES[gameKey];
+  if (!rules) {
+    container.innerHTML = `<p style="color: var(--text-muted); padding: 12px; text-align: center;">No customizable rules for this game.</p>`;
+    return;
+  }
+  
+  container.innerHTML = Object.keys(rules).map(ruleKey => {
+    const label = RULE_LABELS[ruleKey] || ruleKey;
+    const currentVal = tempLobbySettings[ruleKey];
+    return `
+      <div style="margin-bottom: 12px;">
+        <label style="font-size: 11px; font-weight: bold; color: var(--text-muted); text-transform: uppercase;">${label}</label>
+        <div class="rule-cycle-row" style="margin-top: 4px; margin-bottom: 0;">
+          <button class="rule-cycle-btn btn-cycle-prev" data-rule="${ruleKey}">◀</button>
+          <span class="rule-cycle-val">${currentVal}</span>
+          <button class="rule-cycle-btn btn-cycle-next" data-rule="${ruleKey}">▶</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+  
+  // Bind cycle click handlers
+  container.querySelectorAll('.btn-cycle-prev').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const rule = btn.getAttribute('data-rule');
+      if (rule) cycleRuleValue(gameKey, rule, 'backward');
+    });
+  });
+  
+  container.querySelectorAll('.btn-cycle-next').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const rule = btn.getAttribute('data-rule');
+      if (rule) cycleRuleValue(gameKey, rule, 'forward');
+    });
+  });
+}
+
 function renderLobbyRoom(gameState: EngineState) {
   const mainContent = document.getElementById('lobby-main-content');
   if (!mainContent) return;
@@ -1777,6 +1872,22 @@ function renderLobbyRoom(gameState: EngineState) {
   const currPlayerId = activeSeatId;
   const isMyHost = gameState.players[currPlayerId]?.isHost === true;
   const selectedGame = gameState.selectedGame || 'ludo-go-classic';
+
+  // Retrieve customizable settings or fall back to defaults
+  const settings = gameState.lobbySettings || {};
+  const unoRuleSet = settings.unoRuleSet || 'Classic Uno';
+  const unoDrawRule = settings.unoDrawRule || 'Stacking Active';
+  const unoStartingCards = settings.unoStartingCards || '7 cards';
+  const unoTurnTimer = settings.unoTurnTimer || '60 sec';
+
+  const monopolyRuleSet = settings.monopolyRuleSet || 'Speed Monopoly';
+  const monopolyStartingMoney = settings.monopolyStartingMoney || '$1500';
+  const monopolyFreeParking = settings.monopolyFreeParking || 'No Rent Collect';
+  const monopolyGoSalary = settings.monopolyGoSalary || '$200';
+
+  const ludoRuleSet = settings.ludoRuleSet || 'Circular Ludo';
+  const ludoStartingTokens = settings.ludoStartingTokens || '4 tokens';
+  const ludoTurnTimer = settings.ludoTurnTimer || '60 sec';
 
   // Ensure default progress initialized if mock progress empty
   Object.keys(gameState.players).forEach(pid => {
@@ -1906,54 +2017,59 @@ function renderLobbyRoom(gameState: EngineState) {
 
       <!-- Game Rules (directly below) -->
       <div>
-        <h3 style="margin-bottom: 8px;">Game Rules</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <h3 style="margin: 0;">Game Rules</h3>
+          ${isMyHost ? `
+            <button class="action-btn" id="btn-edit-rules" style="padding: 4px 10px; margin: 0; font-size: 11px; background: rgba(168,85,247,0.15); border: 1px solid #a855f7; color: #c084fc; cursor: pointer; border-radius: 6px; display: flex; align-items: center; gap: 4px;">✏️ Edit Rules</button>
+          ` : ''}
+        </div>
         <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 10px; padding: 12px; font-size: 12px;">
           ${selectedGame === 'uno-go' ? `
             <div class="rules-table-row">
               <span class="rules-table-label">Rule Set</span>
-              <span class="rules-table-val">Classic Uno</span>
+              <span class="rules-table-val">${unoRuleSet}</span>
             </div>
             <div class="rules-table-row">
               <span class="rules-table-label">Draw Card Rule</span>
-              <span class="rules-table-val">Stacking Active</span>
+              <span class="rules-table-val">${unoDrawRule}</span>
             </div>
             <div class="rules-table-row">
               <span class="rules-table-label">Starting Cards</span>
-              <span class="rules-table-val">7 cards</span>
+              <span class="rules-table-val">${unoStartingCards}</span>
             </div>
             <div class="rules-table-row">
               <span class="rules-table-label">Turn Timer</span>
-              <span class="rules-table-val">60 sec</span>
+              <span class="rules-table-val">${unoTurnTimer}</span>
             </div>
           ` : selectedGame === 'monopoly-go' ? `
             <div class="rules-table-row">
               <span class="rules-table-label">Rule Set</span>
-              <span class="rules-table-val">Speed Monopoly</span>
+              <span class="rules-table-val">${monopolyRuleSet}</span>
             </div>
             <div class="rules-table-row">
               <span class="rules-table-label">Starting Money</span>
-              <span class="rules-table-val">$1500</span>
+              <span class="rules-table-val">${monopolyStartingMoney}</span>
             </div>
             <div class="rules-table-row">
               <span class="rules-table-label">Free Parking</span>
-              <span class="rules-table-val">No Rent Collect</span>
+              <span class="rules-table-val">${monopolyFreeParking}</span>
             </div>
             <div class="rules-table-row">
               <span class="rules-table-label">Go Salary</span>
-              <span class="rules-table-val">$200</span>
+              <span class="rules-table-val">${monopolyGoSalary}</span>
             </div>
           ` : `
             <div class="rules-table-row">
               <span class="rules-table-label">Rule Set</span>
-              <span class="rules-table-val">Circular Ludo</span>
+              <span class="rules-table-val">${ludoRuleSet}</span>
             </div>
             <div class="rules-table-row">
               <span class="rules-table-label">Starting Tokens</span>
-              <span class="rules-table-val">4 tokens</span>
+              <span class="rules-table-val">${ludoStartingTokens}</span>
             </div>
             <div class="rules-table-row">
               <span class="rules-table-label">Turn Timer</span>
-              <span class="rules-table-val">60 sec</span>
+              <span class="rules-table-val">${ludoTurnTimer}</span>
             </div>
           `}
         </div>
@@ -1973,6 +2089,18 @@ function renderLobbyRoom(gameState: EngineState) {
             Waiting for Host to Start...
           </div>
         `}
+      </div>
+    </div>
+
+    <!-- Floating Rules Edit Drawer -->
+    <div class="rules-drawer" id="rules-drawer">
+      <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">✏️ Edit Game Rules</h3>
+      <div id="rules-edit-container" style="flex-grow: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+        <!-- Dynamic Rules Selectors populated by JS -->
+      </div>
+      <div style="display: flex; gap: 8px; margin-top: 12px;">
+        <button class="action-btn" id="btn-save-rules" style="flex-grow: 1; padding: 10px; margin: 0; background: var(--accent-purple); color: white; border-radius: 8px; font-weight: bold;">Save Rules</button>
+        <button class="action-btn" id="btn-close-rules" style="padding: 10px 14px; margin: 0; background: #374151; color: white; border-radius: 8px;">Cancel</button>
       </div>
     </div>
 
@@ -2003,6 +2131,29 @@ function renderLobbyRoom(gameState: EngineState) {
   });
 
   if (isMyHost) {
+    const rulesDrawer = document.getElementById('rules-drawer');
+    
+    document.getElementById('btn-edit-rules')?.addEventListener('click', () => {
+      const currentSettings = gameState.lobbySettings || {};
+      const gameChoices = RULE_CHOICES[selectedGame] || {};
+      
+      Object.keys(gameChoices).forEach(ruleKey => {
+        tempLobbySettings[ruleKey] = currentSettings[ruleKey] || gameChoices[ruleKey][0];
+      });
+      
+      renderRulesEditContainer(selectedGame);
+      rulesDrawer?.classList.add('active');
+    });
+
+    document.getElementById('btn-save-rules')?.addEventListener('click', () => {
+      syncEngine?.dispatch('UPDATE_LOBBY_SETTINGS', { settings: tempLobbySettings });
+      rulesDrawer?.classList.remove('active');
+    });
+
+    document.getElementById('btn-close-rules')?.addEventListener('click', () => {
+      rulesDrawer?.classList.remove('active');
+    });
+
     document.querySelectorAll('.game-selection-grid .game-card').forEach(card => {
       card.addEventListener('click', () => {
         const game = card.getAttribute('data-game');
