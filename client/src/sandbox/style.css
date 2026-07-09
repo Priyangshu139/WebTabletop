@@ -837,7 +837,7 @@ body {
     display: flex !important;
     flex-direction: column !important;
     justify-content: flex-start !important;
-    align-items: stretch !important;
+    align-items: center !important;
     height: auto !important;
     min-height: 100dvh !important;
     overflow-y: auto !important;
@@ -846,9 +846,11 @@ body {
   }
 
   .sandbox-panel {
-    max-width: 100% !important;
+    max-width: 600px !important;
+    width: 100% !important;
     min-height: auto !important;
     padding: 16px !important;
+    box-sizing: border-box !important;
   }
   
   .game-selection-grid {
