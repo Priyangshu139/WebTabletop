@@ -387,25 +387,41 @@ export class ThreeRenderer {
         const cardCount = state.players[pid]?.hand?.length;
         if (cardCount !== undefined) {
           const countCanvas = document.createElement('canvas');
-          countCanvas.width = 128;
-          countCanvas.height = 64;
+          countCanvas.width = 256;
+          countCanvas.height = 128;
           const countCtx = countCanvas.getContext('2d');
           if (countCtx) {
-            countCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            countCtx.fillStyle = 'rgba(15, 23, 42, 0.9)';
             countCtx.beginPath();
-            countCtx.roundRect(8, 4, 112, 56, 12);
+            const x = 8, y = 4, w = 240, h = 120, r = 16;
+            countCtx.moveTo(x + r, y);
+            countCtx.lineTo(x + w - r, y);
+            countCtx.quadraticCurveTo(x + w, y, x + w, y + r);
+            countCtx.lineTo(x + w, y + h - r);
+            countCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            countCtx.lineTo(x + r, y + h);
+            countCtx.quadraticCurveTo(x, y + h, x, y + h - r);
+            countCtx.lineTo(x, y + r);
+            countCtx.quadraticCurveTo(x, y, x + r, y);
+            countCtx.closePath();
             countCtx.fill();
-            countCtx.font = 'bold 32px sans-serif';
+
+            const emoji = state.players[pid]?.emojiFace || '🦊';
+            const name = `Player ${pid.substring(1)}`;
+            countCtx.font = 'bold 24px sans-serif';
             countCtx.textAlign = 'center';
-            countCtx.textBaseline = 'middle';
+            countCtx.fillStyle = '#ffffff';
+            countCtx.fillText(`${emoji} ${name}`, 128, 48);
+
+            countCtx.font = 'bold 30px sans-serif';
             countCtx.fillStyle = '#fbbf24';
-            countCtx.fillText(`${cardCount} 🃏`, 64, 32);
+            countCtx.fillText(`${cardCount} CARDS`, 128, 92);
           }
           const countTex = new THREE.CanvasTexture(countCanvas);
           const countSpriteMat = new THREE.SpriteMaterial({ map: countTex });
           const countSprite = new THREE.Sprite(countSpriteMat);
-          countSprite.position.set(0, 1.55, 0);
-          countSprite.scale.set(0.7, 0.35, 1);
+          countSprite.position.set(0, 1.6, 0);
+          countSprite.scale.set(1.2, 0.6, 1);
           countSprite.name = 'card-count-label';
           group.add(countSprite);
         }
@@ -419,19 +435,35 @@ export class ThreeRenderer {
         const existingLabel = group.getObjectByName('card-count-label') as THREE.Sprite;
         if (existingLabel && cardCount !== undefined) {
           const countCanvas = document.createElement('canvas');
-          countCanvas.width = 128;
-          countCanvas.height = 64;
+          countCanvas.width = 256;
+          countCanvas.height = 128;
           const countCtx = countCanvas.getContext('2d');
           if (countCtx) {
-            countCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            countCtx.fillStyle = 'rgba(15, 23, 42, 0.9)';
             countCtx.beginPath();
-            countCtx.roundRect(8, 4, 112, 56, 12);
+            const x = 8, y = 4, w = 240, h = 120, r = 16;
+            countCtx.moveTo(x + r, y);
+            countCtx.lineTo(x + w - r, y);
+            countCtx.quadraticCurveTo(x + w, y, x + w, y + r);
+            countCtx.lineTo(x + w, y + h - r);
+            countCtx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+            countCtx.lineTo(x + r, y + h);
+            countCtx.quadraticCurveTo(x, y + h, x, y + h - r);
+            countCtx.lineTo(x, y + r);
+            countCtx.quadraticCurveTo(x, y, x + r, y);
+            countCtx.closePath();
             countCtx.fill();
-            countCtx.font = 'bold 32px sans-serif';
+
+            const emoji = state.players[pid]?.emojiFace || '🦊';
+            const name = `Player ${pid.substring(1)}`;
+            countCtx.font = 'bold 24px sans-serif';
             countCtx.textAlign = 'center';
-            countCtx.textBaseline = 'middle';
+            countCtx.fillStyle = '#ffffff';
+            countCtx.fillText(`${emoji} ${name}`, 128, 48);
+
+            countCtx.font = 'bold 30px sans-serif';
             countCtx.fillStyle = '#fbbf24';
-            countCtx.fillText(`${cardCount} 🃏`, 64, 32);
+            countCtx.fillText(`${cardCount} CARDS`, 128, 92);
           }
           const countTex = new THREE.CanvasTexture(countCanvas);
           existingLabel.material.map = countTex;

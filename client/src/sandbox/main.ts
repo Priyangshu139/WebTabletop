@@ -1646,54 +1646,10 @@ function updateUI(gameState: EngineState) {
       }
     }
 
-    // Populate Roster Count Badges
+    // Populate Roster Count Badges (cleared as they are now rendered purely in 3D above avatars)
     const rosterContainer = document.getElementById('uno-hud-players-roster');
     if (rosterContainer) {
-      const playerIds = Object.keys(gameState.players);
-
-      rosterContainer.innerHTML = playerIds.map((pid, index) => {
-        const isSelf = pid === activeSeatId;
-        const player = gameState.players[pid];
-        const numCards = player.hand?.length || 0;
-
-        // Position on screen based on seat index
-        let positionStyle = '';
-        if (index === 0) {
-          positionStyle = 'left: 40px; bottom: 140px;';
-        } else if (index === 1) {
-          positionStyle = 'right: 40px; top: 40%; transform: translateY(-50%);';
-        } else if (index === 2) {
-          positionStyle = 'left: 50%; top: 120px; transform: translateX(-50%);';
-        } else if (index === 3) {
-          positionStyle = 'left: 40px; top: 40%; transform: translateY(-50%);';
-        } else {
-          positionStyle = 'left: 40px; top: 20%;';
-        }
-
-        const borderStyle = isSelf
-          ? 'border: 2px solid #ef4444; background: rgba(239, 68, 68, 0.15);'
-          : 'border: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.85);';
-
-        const isCurrentActive = gameState.turn.currentPlayerId === pid;
-        const turnHighlight = isCurrentActive
-          ? 'box-shadow: 0 0 16px rgba(16,185,129,0.6); border: 2px solid #10b981;'
-          : '';
-
-        return `
-          <div style="position: absolute; ${positionStyle} backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 12px; padding: 10px 14px; width: 130px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.35); pointer-events: auto; ${borderStyle} ${turnHighlight}">
-            <div style="display: flex; align-items: center; gap: 6px; width: 100%; justify-content: center;">
-              <span style="font-size: 14px;">${player.emojiFace || '🦊'}</span>
-              <span style="font-size: 11px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">Player ${pid.substring(1)}</span>
-            </div>
-            <div style="font-size: 18px; font-weight: 800; color: #fbbf24;">
-              ${numCards} <span style="font-size: 10px; color: #94a3b8; font-weight: normal;">CARDS</span>
-            </div>
-            ${isCurrentActive ? `
-              <div style="background: #10b981; color: white; font-size: 8px; font-weight: 800; padding: 1px 6px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase;">ACTIVE</div>
-            ` : ''}
-          </div>
-        `;
-      }).join('');
+      rosterContainer.innerHTML = '';
     }
 
     // Update Action Buttons States
