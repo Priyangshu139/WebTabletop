@@ -835,10 +835,9 @@ body {
 
   .lobby-main-display {
     display: flex !important;
-    flex-direction: row !important;
-    flex-wrap: wrap !important;
-    justify-content: center !important;
-    align-items: flex-start !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
     height: auto !important;
     min-height: 100dvh !important;
     overflow-y: auto !important;
@@ -847,7 +846,6 @@ body {
   }
 
   .sandbox-panel {
-    flex: 1 1 320px !important;
     max-width: 100% !important;
     min-height: auto !important;
     padding: 16px !important;
