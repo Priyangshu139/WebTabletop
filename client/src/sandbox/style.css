@@ -833,6 +833,24 @@ body {
     box-sizing: border-box;
   }
 
+  .matchmaking-container {
+    display: flex !important;
+    flex-direction: row !important;
+    gap: 3% !important;
+    padding: 16px !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
+  }
+
+  .matchmaking-actions-panel {
+    width: 25% !important;
+    min-width: 130px !important;
+  }
+
+  .matchmaking-setup-column {
+    width: 72% !important;
+  }
+
   .matchmaking-actions-panel .sidebar-btn {
     padding: 10px !important;
     text-align: center !important;
@@ -868,10 +886,11 @@ body {
 
   /* Chat Drawer adjustments on phone */
   .chat-drawer {
-    width: 320px !important;
-    right: -320px !important;
+    width: 45% !important;
+    right: -45% !important;
     height: 100dvh !important;
     padding: 16px 12px !important;
+    min-width: 260px !important; /* Safety minimum width on extremely narrow screens */
   }
   
   .chat-drawer.active {
@@ -883,15 +902,16 @@ body {
   }
   
   .chat-drawer-toggle.active {
-    right: calc(320px - 36px) !important;
+    right: calc(45% - 36px) !important;
   }
 
   /* Rules Drawer adjustments on phone */
   .rules-drawer {
-    width: 320px !important;
-    left: -320px !important;
+    width: 45% !important;
+    left: -45% !important;
     height: 100dvh !important;
     padding: 16px 12px !important;
+    min-width: 260px !important; /* Safety minimum width */
   }
   
   .rules-drawer.active {
