@@ -2077,11 +2077,6 @@ function renderLobbyRoom(gameState: EngineState) {
 
       <!-- Voice and Start Actions -->
       <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
-        <div style="background: rgba(88, 101, 242, 0.08); border: 1px solid rgba(88, 101, 242, 0.2); border-radius: 10px; padding: 10px; display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: #a5b4fc; font-weight: bold;">
-          <span>🔊 pinned voice:</span>
-          <a href="${gameState.discordInviteLink || '#'}" target="_blank" style="color: #3b82f6; text-decoration: none; font-size: 11px;">Join Discord</a>
-        </div>
-
         ${isMyHost ? `
           <button class="btn-start-game-lobby" id="btn-start-game-confirm" style="width: 100%; margin: 0; padding: 12px;">START GAME</button>
         ` : `
