@@ -372,11 +372,8 @@ function renderMatchmaking() {
       }
       const data = await res.json();
 
-      // Retrieve state backup
-      const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state`);
-      const stateData = await stateRes.json();
-
-      initializeSync(lobbyId, data.playerId, data.secretHash, false, stateData.state, { ...userTraits, isSpectator: isSpec });
+      // Only host fetches state from server; peers sync from host via WebRTC.
+      initializeSync(lobbyId, data.playerId, data.secretHash, false, undefined, { ...userTraits, isSpectator: isSpec });
     } catch (err: any) {
       showError(`Failed to join lobby: ${err.message}`);
     }
@@ -394,15 +391,21 @@ function renderMatchmaking() {
     }
 
     try {
-      const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state`);
-      if (!stateRes.ok) {
+      const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state?playerId=${encodeURIComponent(playerId)}&secretHash=${encodeURIComponent(secretHash)}`);
+      
+      if (stateRes.status === 404) {
         showError('Session lobby not found.');
         return;
       }
-      const stateData = await stateRes.json();
-      const isHost = playerId === 'P1';
 
-      initializeSync(lobbyId, playerId, secretHash, isHost, stateData.state);
+      if (stateRes.ok) {
+        // Authorized: This player is the active Host. Get state from server.
+        const stateData = await stateRes.json();
+        initializeSync(lobbyId, playerId, secretHash, true, stateData.state);
+      } else {
+        // Unauthorized/Forbidden: This player is a Peer. They will fetch state from the Host.
+        initializeSync(lobbyId, playerId, secretHash, false, undefined);
+      }
     } catch (err: any) {
       showError(`Reconnection error: ${err.message}`);
     }
@@ -469,9 +472,8 @@ function renderJoinCodePane() {
         return;
       }
       const data = await res.json();
-      const stateRes = await fetch(`${REST_URL}/api/lobby/${code}/state`);
-      const stateData = await stateRes.json();
-      initializeSync(code, data.playerId, data.secretHash, false, stateData.state, { ...userTraits, isSpectator: isSpec });
+      // Only host fetches state from server; peers sync from host via WebRTC.
+      initializeSync(code, data.playerId, data.secretHash, false, undefined, { ...userTraits, isSpectator: isSpec });
     } catch (err: any) {
       showError(`Failed to join lobby: ${err.message}`);
     }

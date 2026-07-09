@@ -111,10 +111,19 @@ app.post('/api/lobby/:id/save', (req, res) => {
 
 app.get('/api/lobby/:id/state', (req, res) => {
   const lobbyId = req.params.id;
+  const playerId = req.query.playerId as string;
+  const secretHash = req.query.secretHash as string;
   const lobby = lobbies[lobbyId];
 
   if (!lobby) {
     res.status(404).json({ error: 'Lobby not found.' });
+    return;
+  }
+
+  // Authorization verification: only let the active Host fetch state from server
+  const player = lobby.players[playerId];
+  if (!player || player.secretHash !== secretHash || lobby.hostId !== playerId) {
+    res.status(401).json({ error: 'Unauthorized: Only the active Host can fetch state from backend.' });
     return;
   }
 
