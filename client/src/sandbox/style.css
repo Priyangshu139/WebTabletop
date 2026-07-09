@@ -847,6 +847,15 @@ body {
     width: 18% !important;
     min-width: 90px !important;
     box-sizing: border-box !important;
+    padding: 8px 6px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+
+  /* Hide logo in actions panel on landscape — saves vertical space */
+  .matchmaking-actions-panel .sidebar-logo {
+    display: none !important;
   }
 
   .matchmaking-setup-column {
@@ -855,16 +864,20 @@ body {
   }
 
   .matchmaking-actions-panel .sidebar-btn {
-    display: block !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
     width: 100% !important;
-    padding: 8px 2px !important;
-    font-size: 11px !important;
+    padding: 10px 4px !important;
+    font-size: 10px !important;
     text-align: center !important;
     box-sizing: border-box !important;
+    flex: 1 !important;
   }
 
   .matchmaking-actions-panel .sidebar-btn strong {
     font-size: 10px !important;
+    letter-spacing: 0 !important;
   }
   
   .matchmaking-actions-panel .sidebar-btn span {
