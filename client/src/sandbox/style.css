@@ -840,20 +840,31 @@ body {
     padding: 16px !important;
     width: 100% !important;
     box-sizing: border-box !important;
+    overflow-x: hidden !important;
   }
 
   .matchmaking-actions-panel {
-    width: 25% !important;
-    min-width: 130px !important;
+    width: 18% !important;
+    min-width: 90px !important;
+    box-sizing: border-box !important;
   }
 
   .matchmaking-setup-column {
-    width: 72% !important;
+    width: 79% !important;
+    box-sizing: border-box !important;
   }
 
   .matchmaking-actions-panel .sidebar-btn {
-    padding: 10px !important;
+    display: block !important;
+    width: 100% !important;
+    padding: 8px 2px !important;
+    font-size: 11px !important;
     text-align: center !important;
+    box-sizing: border-box !important;
+  }
+
+  .matchmaking-actions-panel .sidebar-btn strong {
+    font-size: 10px !important;
   }
   
   .matchmaking-actions-panel .sidebar-btn span {
