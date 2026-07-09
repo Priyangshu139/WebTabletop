@@ -771,6 +771,28 @@ body {
   color: #818cf8;
 }
 
+.matchmaking-container {
+  display: flex;
+  gap: 24px;
+  max-width: 960px;
+  width: 100%;
+  margin: auto;
+  padding: 24px;
+  box-sizing: border-box;
+  align-items: flex-start;
+}
+
+.matchmaking-actions-panel {
+  width: 280px;
+  flex-shrink: 0;
+}
+
+.matchmaking-setup-column {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 /* Mobile-Responsive Styling */
 @media (max-width: 768px) {
   #app {
@@ -779,6 +801,20 @@ body {
   
   .lobby-sidebar {
     display: none !important;
+  }
+
+  .matchmaking-container {
+    flex-direction: column !important;
+    padding: 16px !important;
+    gap: 16px !important;
+  }
+  
+  .matchmaking-actions-panel {
+    width: 100% !important;
+  }
+  
+  .matchmaking-setup-column {
+    width: 100% !important;
   }
 
   .lobby-main-display {

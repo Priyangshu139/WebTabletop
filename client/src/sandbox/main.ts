@@ -44,7 +44,7 @@ function saveAvatarTraits() {
 function renderMatchmaking() {
   if (!app) return;
   isReplayMode = false;
-  app.style.gridTemplateColumns = '280px 1fr';
+  app.style.gridTemplateColumns = '1fr';
   
   if (replayEngine) {
     replayEngine.destroy();
@@ -58,117 +58,97 @@ function renderMatchmaking() {
   const traits = getSavedAvatar();
 
   app.innerHTML = `
-    <!-- Persistent Left Sidebar -->
-    <div class="lobby-sidebar">
-      <div class="sidebar-logo">
-        <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-          <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c.83 0 1.5.67 1.5 1.5S12.83 9 12 9s-1.5-.67-1.5-1.5S11.17 6 12 6zm-4 4c.83 0 1.5.67 1.5 1.5S8.83 13 8 13s-1.5-.67-1.5-1.5S7.17 10 8 10zm0 6c.83 0 1.5.67 1.5 1.5S8.83 19 8 19s-1.5-.67-1.5-1.5S7.17 16 8 16zm8-3c.83 0 1.5.67 1.5 1.5S16.83 16 16 16s-1.5-.67-1.5-1.5S15.17 13 16 13zm0-6c.83 0 1.5.67 1.5 1.5S16.83 9 16 9s-1.5-.67-1.5-1.5S15.17 6 16 6z"/>
-        </svg>
-        <div class="sidebar-logo-text">
-          <h2>TABLETOP</h2>
-          <p>Play Together</p>
-        </div>
-      </div>
-
-      <div id="sidebar-lobby-actions-container">
-        <button class="sidebar-btn purple" id="sidebar-btn-create">
-          <strong>NEW LOBBY</strong>
-          <span style="font-size: 11px; opacity: 0.85;">Create a new game lobby</span>
-        </button>
-
-        <button class="sidebar-btn blue" id="sidebar-btn-join">
-          <strong>JOIN LOBBY</strong>
-          <span style="font-size: 11px; opacity: 0.85;">Join with code or link</span>
-        </button>
-      </div>
-
-      <div class="sidebar-bottom-links">
-        <div class="sidebar-link-item">⚙️ Settings</div>
-        <div class="sidebar-link-item">ℹ️ About</div>
-      </div>
-    </div>
-
-    <!-- Main Content Area -->
-    <div class="lobby-main-display" id="lobby-main-content" style="display: flex; gap: 24px; justify-content: center; align-items: flex-start; max-width: 1100px; margin: auto; padding: 24px; box-sizing: border-box;">
-      
-      <!-- Welcome & Setup pane -->
-      <div class="sandbox-panel" style="width: 100%; max-width: 500px; box-sizing: border-box;">
-        <div class="title-header">
-          <h1>Configure Avatar Profile</h1>
-          <p style="color: var(--text-muted); margin: 0;">Set up your seated avatar look before joining a room.</p>
-        </div>
-
-        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-size: 12px; color: var(--text-muted);">Emoji Head:</label>
-              <select id="avatar-emoji" style="background: #121722; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border);">
-                <option value="🦊" ${traits.emojiFace === '🦊' ? 'selected' : ''}>🦊 Fox</option>
-                <option value="🐼" ${traits.emojiFace === '🐼' ? 'selected' : ''}>🐼 Panda</option>
-                <option value="🐸" ${traits.emojiFace === '🐸' ? 'selected' : ''}>🐸 Frog</option>
-                <option value="🐱" ${traits.emojiFace === '🐱' ? 'selected' : ''}>🐱 Cat</option>
-                <option value="🐯" ${traits.emojiFace === '🐯' ? 'selected' : ''}>🐯 Tiger</option>
-                <option value="🦁" ${traits.emojiFace === '🦁' ? 'selected' : ''}>🦁 Lion</option>
-                <option value="🤖" ${traits.emojiFace === '🤖' ? 'selected' : ''}>🤖 Robot</option>
-              </select>
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 4px;">
-              <label style="font-size: 12px; color: var(--text-muted);">Skin Tone:</label>
-              <select id="avatar-skin" style="background: #121722; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border);">
-                <option value="light" ${traits.skinTone === 'light' ? 'selected' : ''}>Light</option>
-                <option value="medium" ${traits.skinTone === 'medium' ? 'selected' : ''}>Medium</option>
-                <option value="dark" ${traits.skinTone === 'dark' ? 'selected' : ''}>Dark</option>
-              </select>
-            </div>
-          </div>
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <label style="font-size: 12px; color: var(--text-muted);">Pawn Base Color:</label>
-            <div class="profile-colors-grid" id="profile-colors-selector">
-              ${[
-                '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
-                '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
-              ].map(col => {
-                const isSelected = traits.color === col;
-                return `
-                  <div class="avatar-color-square ${isSelected ? 'active' : ''}" data-color="${col}" style="width: 36px; height: 36px;">
-                    <div class="player-pawn-circle" style="background-color: ${col}; width: 20px; height: 20px;"></div>
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          </div>
-        </div>
-      </div>
-      
-      <!-- Lobby actions and Replay container -->
-      <div class="sandbox-panel" style="width: 100%; max-width: 440px; box-sizing: border-box; display: flex; flex-direction: column; gap: 20px;">
-        <div>
-          <h3 style="margin-top: 0; margin-bottom: 12px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-size: 11px;">Select Lobby Action</h3>
-          <div style="display: flex; flex-direction: column; gap: 10px;">
-            <button class="sidebar-btn purple" id="mobile-btn-create" style="width: 100%; margin: 0; padding: 14px;">
-              <strong>NEW LOBBY</strong>
-              <span style="font-size: 11px; opacity: 0.85;">Create a new game lobby</span>
-            </button>
-            <button class="sidebar-btn blue" id="mobile-btn-join" style="width: 100%; margin: 0; padding: 14px;">
-              <strong>JOIN LOBBY</strong>
-              <span style="font-size: 11px; opacity: 0.85;">Join with code or link</span>
-            </button>
+    <div class="matchmaking-container">
+      <!-- Panel 1: Lobby Actions (New/Join) -->
+      <div class="sandbox-panel matchmaking-actions-panel">
+        <div class="sidebar-logo" style="margin-bottom: 20px; display: flex; align-items: center; gap: 10px;">
+          <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" style="width: 32px; height: 32px; fill: #818cf8;">
+            <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-7 3c.83 0 1.5.67 1.5 1.5S12.83 9 12 9s-1.5-.67-1.5-1.5S11.17 6 12 6zm-4 4c.83 0 1.5.67 1.5 1.5S8.83 13 8 13s-1.5-.67-1.5-1.5S7.17 10 8 10zm0 6c.83 0 1.5.67 1.5 1.5S8.83 19 8 19s-1.5-.67-1.5-1.5S7.17 16 8 16zm8-3c.83 0 1.5.67 1.5 1.5S16.83 16 16 16s-1.5-.67-1.5-1.5S15.17 13 16 13zm0-6c.83 0 1.5.67 1.5 1.5S16.83 9 16 9s-1.5-.67-1.5-1.5S15.17 6 16 6z"/>
+          </svg>
+          <div class="sidebar-logo-text">
+            <h2 style="margin: 0; font-size: 20px; font-weight: 700; color: white;">TABLETOP</h2>
+            <p style="margin: 0; font-size: 11px; color: var(--text-muted);">Play Together</p>
           </div>
         </div>
 
-        <div style="border-top: 1px solid var(--panel-border); padding-top: 16px;">
-          <h3 style="margin-top: 0; margin-bottom: 6px; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.5px; font-size: 11px;">Load Event-Sourced Replay</h3>
-          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0;">Step through match event history.</p>
-          <input type="file" id="input-upload-replay" accept=".json" style="background: #121722; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; width: 100%; box-sizing: border-box;">
+        <div id="sidebar-lobby-actions-container" style="display: flex; flex-direction: column; gap: 12px; width: 100%;">
+          <button class="sidebar-btn purple" id="sidebar-btn-create" style="width: 100%; display: flex; flex-direction: column; text-align: left; padding: 12px; border-radius: 8px; cursor: pointer;">
+            <strong>NEW LOBBY</strong>
+            <span style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Create a new game lobby</span>
+          </button>
+
+          <button class="sidebar-btn blue" id="sidebar-btn-join" style="width: 100%; display: flex; flex-direction: column; text-align: left; padding: 12px; border-radius: 8px; cursor: pointer;">
+            <strong>JOIN LOBBY</strong>
+            <span style="font-size: 11px; opacity: 0.85; margin-top: 2px;">Join with code or link</span>
+          </button>
         </div>
 
-        <div class="error-toast" id="matchmaking-error"></div>
+        <div class="error-toast" id="matchmaking-error" style="margin-top: 12px;"></div>
+      </div>
+
+      <!-- Right column wrapper -->
+      <div class="matchmaking-setup-column">
+        <!-- Panel 2: Avatar Profile -->
+        <div class="sandbox-panel">
+          <div class="title-header" style="margin-bottom: 12px;">
+            <h2 style="margin: 0; font-size: 18px; color: white;">Configure Avatar</h2>
+            <p style="color: var(--text-muted); margin: 2px 0 0 0; font-size: 12px;">Set up your avatar look before joining a room.</p>
+          </div>
+
+          <div style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 12px;">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: var(--text-muted);">Emoji Head:</label>
+                <select id="avatar-emoji" style="background: #121722; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border); font-size: 13px;">
+                  <option value="🦊" ${traits.emojiFace === '🦊' ? 'selected' : ''}>🦊 Fox</option>
+                  <option value="🐼" ${traits.emojiFace === '🐼' ? 'selected' : ''}>🐼 Panda</option>
+                  <option value="🐸" ${traits.emojiFace === '🐸' ? 'selected' : ''}>🐸 Frog</option>
+                  <option value="🐱" ${traits.emojiFace === '🐱' ? 'selected' : ''}>🐱 Cat</option>
+                  <option value="🐯" ${traits.emojiFace === '🐯' ? 'selected' : ''}>🐯 Tiger</option>
+                  <option value="🦁" ${traits.emojiFace === '🦁' ? 'selected' : ''}>🦁 Lion</option>
+                  <option value="🤖" ${traits.emojiFace === '🤖' ? 'selected' : ''}>🤖 Robot</option>
+                </select>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 4px;">
+                <label style="font-size: 12px; color: var(--text-muted);">Skin Tone:</label>
+                <select id="avatar-skin" style="background: #121722; color: white; padding: 8px; border-radius: 6px; border: 1px solid var(--panel-border); font-size: 13px;">
+                  <option value="light" ${traits.skinTone === 'light' ? 'selected' : ''}>Light</option>
+                  <option value="medium" ${traits.skinTone === 'medium' ? 'selected' : ''}>Medium</option>
+                  <option value="dark" ${traits.skinTone === 'dark' ? 'selected' : ''}>Dark</option>
+                </select>
+              </div>
+            </div>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
+              <label style="font-size: 12px; color: var(--text-muted);">Pawn Base Color:</label>
+              <div class="profile-colors-grid" id="profile-colors-selector">
+                ${[
+                  '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
+                  '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
+                ].map(col => {
+                  const isSelected = traits.color === col;
+                  return `
+                    <div class="avatar-color-square ${isSelected ? 'active' : ''}" data-color="${col}" style="width: 32px; height: 32px;">
+                      <div class="player-pawn-circle" style="background-color: ${col}; width: 18px; height: 18px;"></div>
+                    </div>
+                  `;
+                }).join('')}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Load Replay Panel (below avatar profile) -->
+        <div class="sandbox-panel" id="load-replay-panel" style="margin-top: 16px;">
+          <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 14px; color: white;">Load Replay</h3>
+          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0;">Step through match event history from a save file.</p>
+          <input type="file" id="input-upload-replay" accept=".json" style="background: #121722; border: 1px solid var(--panel-border); padding: 8px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 12px; color: var(--text-muted);">
+        </div>
       </div>
     </div>
   `;
 
   // Bind Sidebar and welcome setup listeners
-  const handleCreateLobby = async () => {
+  document.getElementById('sidebar-btn-create')?.addEventListener('click', async () => {
     showError('');
     const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
     if (actionsContainer) actionsContainer.style.display = 'none';
@@ -185,19 +165,13 @@ function renderMatchmaking() {
       showError(`Failed to create lobby: ${err.message}`);
       if (actionsContainer) actionsContainer.style.display = 'block';
     }
-  };
+  });
 
-  document.getElementById('sidebar-btn-create')?.addEventListener('click', handleCreateLobby);
-  document.getElementById('mobile-btn-create')?.addEventListener('click', handleCreateLobby);
-
-  const handleJoinLobby = () => {
+  document.getElementById('sidebar-btn-join')?.addEventListener('click', () => {
     const actionsContainer = document.getElementById('sidebar-lobby-actions-container');
     if (actionsContainer) actionsContainer.style.display = 'none';
     renderJoinCodePane();
-  };
-
-  document.getElementById('sidebar-btn-join')?.addEventListener('click', handleJoinLobby);
-  document.getElementById('mobile-btn-join')?.addEventListener('click', handleJoinLobby);
+  });
 
   document.getElementById('avatar-emoji')?.addEventListener('change', saveAvatarTraits);
   document.getElementById('avatar-skin')?.addEventListener('change', saveAvatarTraits);
