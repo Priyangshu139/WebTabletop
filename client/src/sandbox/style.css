@@ -844,7 +844,7 @@ body {
     align-items: flex-start !important; /* panels only grow as tall as their content */
   }
 
-  .matchmaking-actions-panel {
+  .sandbox-panel.matchmaking-actions-panel {
     width: 20% !important;
     min-width: 100px !important;
     max-width: 130px !important;
@@ -852,7 +852,7 @@ body {
     padding: 10px 8px !important;
     align-self: flex-start !important;
     flex-shrink: 0 !important;
-    height: auto !important;        /* don't stretch to sibling height */
+    height: auto !important;
   }
 
   /* Compact logo on landscape */
