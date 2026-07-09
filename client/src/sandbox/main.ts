@@ -985,6 +985,30 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
             <!-- Dynamically populated in updateUI -->
           </div>
 
+          <!-- Right-Side HUD Panel: Direction + Top Discard -->
+          <div id="uno-hud-right-panel" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 12px; align-items: center; pointer-events: auto; z-index: 10;">
+            <div id="uno-hud-direction-badge" style="background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 14px; text-align: center; min-width: 80px;">
+              <div style="font-size: 24px;" id="direction-arrow-icon">➡️</div>
+              <div style="font-size: 10px; color: #94a3b8; font-weight: bold; margin-top: 4px;" id="direction-label-text">CLOCKWISE</div>
+            </div>
+            <div id="uno-hud-top-discard" style="background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px; text-align: center; min-width: 80px;">
+              <div style="font-size: 10px; color: #94a3b8; font-weight: bold; margin-bottom: 8px;">TOP CARD</div>
+              <div id="discard-preview-card" style="width: 56px; height: 80px; border-radius: 8px; border: 2px solid #fff; margin: 0 auto; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;"></div>
+            </div>
+          </div>
+
+          <style>
+            @keyframes cardShakeReject {
+              0% { transform: translateY(0); }
+              15% { transform: translateY(-18px) rotate(-3deg); }
+              30% { transform: translateY(-18px) rotate(3deg); }
+              45% { transform: translateY(-18px) rotate(-2deg); }
+              60% { transform: translateY(-18px) rotate(2deg); }
+              75% { transform: translateY(-8px) rotate(-1deg); }
+              100% { transform: translateY(0) rotate(0deg); }
+            }
+          </style>
+
           <!-- Bottom Hand HUD -->
           <div style="position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 75%; max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
             <div id="my-cards-container" style="display: flex; gap: 12px; overflow-x: auto; padding: 12px 24px; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); max-width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.65); pointer-events: auto;">
@@ -1595,6 +1619,33 @@ function updateUI(gameState: EngineState) {
       directionText.innerText = isClockwise ? '➡️ CLOCKWISE' : '⬅️ COUNTER-CLOCKWISE';
     }
 
+    // Update right-side HUD panel
+    const dirArrow = document.getElementById('direction-arrow-icon');
+    const dirLabel = document.getElementById('direction-label-text');
+    if (dirArrow && dirLabel) {
+      const cw = (gameState.moduleState as any).clockwise !== false;
+      dirArrow.innerText = cw ? '➡️' : '⬅️';
+      dirLabel.innerText = cw ? 'CLOCKWISE' : 'COUNTER-CW';
+    }
+
+    const discardPreview = document.getElementById('discard-preview-card');
+    if (discardPreview) {
+      const topCard = gameState.moduleState.unoDiscardPile?.[gameState.moduleState.unoDiscardPile.length - 1];
+      if (topCard) {
+        const colorMap: Record<string, string> = { red: '#ef4444', blue: '#3b82f6', green: '#22c55e', yellow: '#eab308' };
+        const bg = colorMap[topCard.color] || '#6b7280';
+        discardPreview.style.background = bg;
+        discardPreview.innerHTML = `
+          <div style="background: #fff; width: 36px; height: 56px; border-radius: 50%; transform: rotate(-22deg); display: flex; align-items: center; justify-content: center;">
+            <span style="color: ${bg}; font-size: 18px; font-weight: 900; font-style: italic; transform: rotate(22deg);">${topCard.value}</span>
+          </div>
+        `;
+      } else {
+        discardPreview.style.background = '#374151';
+        discardPreview.innerHTML = '<span style="color: #6b7280; font-size: 10px;">Empty</span>';
+      }
+    }
+
     // Populate Roster Count Badges
     const rosterContainer = document.getElementById('uno-hud-players-roster');
     if (rosterContainer) {
@@ -1740,7 +1791,7 @@ function updateUI(gameState: EngineState) {
               flex-shrink: 0;
               transition: transform 0.2s, box-shadow 0.2s;
               pointer-events: auto;
-            " ${!isMyTurn ? 'disabled' : ''}>
+            ">
               <!-- Card Color Background -->
               <div style="
                 background: ${colorHex};
@@ -1799,19 +1850,36 @@ function updateUI(gameState: EngineState) {
           `;
         }).join('');
 
-        // Attach play card listeners
-        if (isMyTurn) {
-          const btns = handContainer.querySelectorAll('.card-btn');
-          btns.forEach(btn => {
-            btn.addEventListener('click', (e) => {
-              const cid = (e.currentTarget as HTMLButtonElement).dataset.cardId;
-              const selectedCard = myHand.find(c => c.id === cid);
-              if (selectedCard) {
-                syncEngine?.dispatch('PLAY_CARD', { card: selectedCard });
-              }
-            });
+        // Attach play card listeners (always clickable for animation feedback)
+        const btns = handContainer.querySelectorAll('.card-btn');
+        btns.forEach(btn => {
+          btn.addEventListener('click', (e) => {
+            const cardEl = e.currentTarget as HTMLButtonElement;
+            const cid = cardEl.dataset.cardId;
+            const selectedCard = myHand.find(c => c.id === cid);
+            if (!selectedCard) return;
+
+            if (!isMyTurn) {
+              // Not your turn — shake
+              cardEl.style.animation = 'cardShakeReject 0.5s ease';
+              cardEl.addEventListener('animationend', () => { cardEl.style.animation = ''; }, { once: true });
+              triggerFloatingAlert('Not your turn!');
+              return;
+            }
+
+            // Check playability
+            const topCard = gameState.moduleState.unoDiscardPile?.[gameState.moduleState.unoDiscardPile.length - 1];
+            if (topCard && selectedCard.color !== topCard.color && selectedCard.value !== topCard.value) {
+              // Unplayable — shake animation
+              cardEl.style.animation = 'cardShakeReject 0.5s ease';
+              cardEl.addEventListener('animationend', () => { cardEl.style.animation = ''; }, { once: true });
+              triggerFloatingAlert('Card doesn\'t match!');
+              return;
+            }
+
+            syncEngine?.dispatch('PLAY_CARD', { card: selectedCard });
           });
-        }
+        });
       }
     }
   }

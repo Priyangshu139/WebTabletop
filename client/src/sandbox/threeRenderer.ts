@@ -382,10 +382,61 @@ export class ThreeRenderer {
 
         this.scene.add(group);
         this.avatarsMap.set(pid, group);
+
+        // 6. Card count label above head
+        const cardCount = state.players[pid]?.hand?.length;
+        if (cardCount !== undefined) {
+          const countCanvas = document.createElement('canvas');
+          countCanvas.width = 128;
+          countCanvas.height = 64;
+          const countCtx = countCanvas.getContext('2d');
+          if (countCtx) {
+            countCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            countCtx.beginPath();
+            countCtx.roundRect(8, 4, 112, 56, 12);
+            countCtx.fill();
+            countCtx.font = 'bold 32px sans-serif';
+            countCtx.textAlign = 'center';
+            countCtx.textBaseline = 'middle';
+            countCtx.fillStyle = '#fbbf24';
+            countCtx.fillText(`${cardCount} 🃏`, 64, 32);
+          }
+          const countTex = new THREE.CanvasTexture(countCanvas);
+          const countSpriteMat = new THREE.SpriteMaterial({ map: countTex });
+          const countSprite = new THREE.Sprite(countSpriteMat);
+          countSprite.position.set(0, 1.55, 0);
+          countSprite.scale.set(0.7, 0.35, 1);
+          countSprite.name = 'card-count-label';
+          group.add(countSprite);
+        }
       } else {
         // Update avatar position if count changed
         group.position.set(x, 0, z);
         group.lookAt(0, 0, 0);
+
+        // Update card count label
+        const cardCount = state.players[pid]?.hand?.length;
+        const existingLabel = group.getObjectByName('card-count-label') as THREE.Sprite;
+        if (existingLabel && cardCount !== undefined) {
+          const countCanvas = document.createElement('canvas');
+          countCanvas.width = 128;
+          countCanvas.height = 64;
+          const countCtx = countCanvas.getContext('2d');
+          if (countCtx) {
+            countCtx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            countCtx.beginPath();
+            countCtx.roundRect(8, 4, 112, 56, 12);
+            countCtx.fill();
+            countCtx.font = 'bold 32px sans-serif';
+            countCtx.textAlign = 'center';
+            countCtx.textBaseline = 'middle';
+            countCtx.fillStyle = '#fbbf24';
+            countCtx.fillText(`${cardCount} 🃏`, 64, 32);
+          }
+          const countTex = new THREE.CanvasTexture(countCanvas);
+          existingLabel.material.map = countTex;
+          existingLabel.material.needsUpdate = true;
+        }
       }
     });
   }
