@@ -912,144 +912,287 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
   if (!mainContent) return;
 
   mainContent.classList.add('gameplay-active');
-  mainContent.style.display = 'grid';
 
-  mainContent.innerHTML = `
-    <!-- Column 1: Config & Roster -->
-    <div class="sandbox-panel">
-      <div class="title-header">
-        <h1>Lobby Code: <span style="color: #60a5fa;">${lobbyId}</span></h1>
-        <p style="color: var(--text-muted); margin: 0;">Seat: <strong style="color: white;">${playerId}</strong> (${isHost ? 'HOST' : 'PEER'})</p>
-      </div>
+  if (activeGame === 'uno-go') {
+    // Immersive fullscreen overlay design matching the target mockup
+    mainContent.style.display = 'block';
+    mainContent.style.position = 'relative';
+    mainContent.style.width = '100vw';
+    mainContent.style.height = '100vh';
+    mainContent.style.padding = '0';
+    mainContent.style.margin = '0';
+    mainContent.style.overflow = 'hidden';
 
-      <div id="discord-active-banner" style="display: none;"></div>
-      <div id="spectator-view-banner" style="display: none; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px;"></div>
-
-      <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace;">
-        <strong>RECONNECT KEY:</strong><br>
-        <code style="color: #f43f5e; word-break: break-all;">Lobby: ${lobbyId} | Player: ${playerId} | Hash: ${secretHash}</code>
-      </div>
-
-      <div id="migration-banner" style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); padding: 10px; border-radius: 8px; display: none; color: #facc15; font-weight: bold; font-size: 13px;">
-        ⚠️ Host Disconnected. Migrating authority...
-      </div>
-
-      <div>
-        <h3>Lobby Active Seats</h3>
-        <div id="player-list"></div>
-      </div>
-
-      <!-- Monopoly property owned ledger -->
-      ${activeGame === 'monopoly-go' ? `
-      <div>
-        <h3>Purchased Properties</h3>
-        <div id="monopoly-ledger" style="font-size: 12px; display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--panel-border); max-height: 180px; overflow-y: auto;">No properties owned yet.</div>
-      </div>
-      ` : ''}
-
-      <!-- Discord Pin Box (Host Only) -->
-      ${isHost ? `
-      <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
-        <h3 style="margin-top: 0;">Discord Voice Pin (Host)</h3>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="discord-input" placeholder="https://discord.gg/..." style="flex-grow: 1; background: #121722; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px; font-size: 12px;">
-          <button class="action-btn" id="btn-pin-discord" style="padding: 8px 14px; font-size: 12px; margin-right: 0; background: #5865f2;">Pin</button>
-        </div>
-      </div>
-      ` : ''}
-    </div>
-
-    <!-- Column 2: Immersive 3D Tabletop and Control Area -->
-    <div class="sandbox-panel" style="gap: 12px;">
-      <div id="turn-timer-banner" style="background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); padding: 10px; border-radius: 8px; margin-bottom: 4px; display: none;">
-        <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #fca5a5;">
-          <span>⏱️ Turn Timer Active</span>
-          <span id="turn-timer-text">0s left</span>
-        </div>
-        <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
-          <div id="turn-timer-bar" style="width: 100%; height: 100%; background: #ef4444; transition: width 0.2s linear;"></div>
-        </div>
-      </div>
-
-      <div>
-        <h3 style="text-transform: capitalize; margin: 0 0 4px 0;">3D Tabletop Viewport: ${activeGame.replace(/-/g, ' ')}</h3>
-        <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 8px 0;">Drag to rotate table. Scroll to zoom camera angle.</p>
+    mainContent.innerHTML = `
+      <!-- Fullscreen 3D Viewport -->
+      <div id="camera-viewport" style="width: 100%; height: 100%; overflow: hidden; background: #090d16; position: relative;">
+        <div id="three-canvas-container" style="width: 100%; height: 100%;"></div>
         
-        <div id="camera-viewport" style="width: 100%; height: 420px; border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; background: #0b0f19; position: relative;">
-          <div id="three-canvas-container" style="width: 100%; height: 100%;"></div>
-        </div>
-      </div>
+        <!-- Premium HUD Overlay -->
+        <div id="uno-game-hud" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; font-family: 'Outfit', 'Inter', sans-serif;">
+          
+          <!-- Top Left: Game Info Box -->
+          <div style="position: absolute; top: 20px; left: 20px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 18px; color: white; display: flex; align-items: center; gap: 12px; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.45);">
+            <div style="background: #ef4444; width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-style: italic; font-size: 15px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 2px 8px rgba(239,68,68,0.4);">UNO</div>
+            <div>
+              <div style="font-size: 14px; font-weight: 800; letter-spacing: 0.5px; color: white;">GAME: UNO</div>
+              <div style="font-size: 11px; color: #94a3b8; font-weight: bold; margin-top: 1px;">ROUND 1</div>
+              <div style="font-size: 10px; color: #64748b; font-family: monospace; display: flex; align-items: center; gap: 4px; margin-top: 2px;">
+                MATCH ID: <span>${lobbyId}</span>
+                <button id="btn-copy-match-id" style="background: none; border: none; padding: 0; cursor: pointer; color: #60a5fa; font-size: 10px;">📋</button>
+              </div>
+            </div>
+          </div>
 
-      <div>
-        <!-- Flick physics throwing pad -->
-        <div id="physics-dice-surface" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; text-align: center; ${activeGame === 'uno-go' ? 'display: none;' : ''}">
-          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 6px 0;">Drag and FLICK the dice to roll!</p>
-          <div class="dice-3d-surface">
-            <div id="physical-dice" class="dice-3d">🎲</div>
+          <!-- Top Center: Turn Indicator Pill & Timer -->
+          <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            <div style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.15); border-radius: 30px; padding: 8px 24px; color: white; display: flex; align-items: center; gap: 10px; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.45);">
+              <div id="uno-turn-dot" style="width: 12px; height: 12px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></div>
+              <div id="uno-turn-text" style="font-size: 14px; font-weight: bold;">Loading...</div>
+              <div style="width: 1px; height: 16px; background: rgba(255,255,255,0.2);"></div>
+              <div style="display: flex; align-items: center; gap: 4px; font-size: 13px; font-weight: bold; color: #fca5a5;">
+                ⏱️ <span id="uno-turn-timer">30s</span>
+              </div>
+            </div>
+
+            <!-- Direction of Play -->
+            <div style="background: rgba(255, 251, 235, 0.08); backdrop-filter: blur(6px); border: 1px solid rgba(251, 191, 36, 0.2); border-radius: 8px; padding: 4px 12px; font-size: 10px; color: #fbbf24; font-weight: bold; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
+              DIRECTION OF PLAY: <span id="uno-direction-text" style="color: white; font-weight: 800;">➡️ CLOCKWISE</span>
+            </div>
+          </div>
+
+          <!-- Top Right: Quick Actions Buttons -->
+          <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 8px; pointer-events: auto;">
+            <button class="action-btn" id="uno-btn-mute" style="padding: 10px; margin: 0; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: white;">🔊</button>
+            <button class="action-btn" id="uno-btn-settings" style="padding: 10px; margin: 0; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: white;">⚙️</button>
+            <button class="action-btn" id="btn-exit-game" style="padding: 10px; margin: 0; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: #ef4444;">🚪</button>
+          </div>
+
+          <!-- Player cards count badges around the screen -->
+          <div id="uno-hud-players-roster" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
+            <!-- Dynamically populated in updateUI -->
+          </div>
+
+          <!-- Bottom Hand HUD -->
+          <div style="position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 75%; max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+            <div id="my-cards-container" style="display: flex; gap: 12px; overflow-x: auto; padding: 12px 24px; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); max-width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.65); pointer-events: auto;">
+              <!-- Cards dynamically populated -->
+            </div>
+          </div>
+
+          <!-- Bottom Actions Bar -->
+          <div style="position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; pointer-events: auto; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); padding: 8px 24px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 25px rgba(0,0,0,0.5);">
+            <button class="action-btn" id="btn-play-card-hud" style="background: #16a34a; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              🟢 PLAY CARD
+            </button>
+            <button class="action-btn" id="btn-draw-card" disabled style="background: #2563eb; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              🔵 DRAW CARD
+            </button>
+            <button class="action-btn" id="btn-call-uno" style="background: #dc2626; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              🔴 CALL UNO
+            </button>
+            <button class="action-btn" id="btn-toggle-inspector" style="background: #475569; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              👁️ VIEW CARDS
+            </button>
           </div>
         </div>
 
-        <!-- Card Hand GUI panel -->
-        <div id="uno-hand-gui" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">
-          <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0; font-weight: bold;">Your Hand:</p>
-          <div id="my-cards-container" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;"></div>
-        </div>
-
-        <div id="actions-panel" style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px;">
-          <button class="action-btn" id="btn-move" disabled style="${activeGame === 'uno-go' ? 'display: none;' : ''}">Move Piece</button>
-          <button class="action-btn" id="btn-resolve" disabled style="${activeGame === 'uno-go' ? 'display: none;' : ''}">Resolve Space</button>
-          <button class="action-btn" id="btn-buy-property" disabled style="background-color: #10b981; ${activeGame !== 'monopoly-go' ? 'display: none;' : ''}">Buy Property</button>
-          <button class="action-btn" id="btn-draw-card" disabled style="background-color: #f59e0b; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">Draw Card</button>
-          <button class="action-btn" id="btn-end" disabled>End Turn</button>
-        </div>
+        <!-- Hidden elements for state/chat drawer trigger references to avoid breakages -->
+        <div id="uno-hand-gui" style="display: none;"></div>
+        <div id="physics-dice-surface" style="display: none;"></div>
+        <button id="btn-move" style="display: none;"></button>
+        <button id="btn-resolve" style="display: none;"></button>
+        <button id="btn-buy-property" style="display: none;"></button>
+        <button id="btn-end" style="display: none;"></button>
+        <div class="state-inspector" id="state-inspector" style="display: none;"></div>
         <div class="error-toast" id="error-box"></div>
       </div>
-    </div>
 
-    <!-- Column 3: Match Events, Inspectors & download buttons -->
-    <div class="sandbox-panel" style="gap: 16px;">
-      <div>
-        <h3 style="margin-bottom: 8px;">Match Events</h3>
-        <div class="event-feed" id="event-feed" style="height: 120px;"></div>
-      </div>
-
-      <div>
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
-          <h3 style="margin: 0;">Replicated State</h3>
-          <button class="action-btn" id="btn-toggle-inspector" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); margin: 0;">Toggle</button>
+      <!-- Floating Chat Toggle Drawer -->
+      <button class="chat-drawer-toggle" id="btn-chat-toggle">◀</button>
+      <div class="chat-drawer" id="chat-drawer">
+        <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">💬 Lobby Chat</h3>
+        <div id="chat-pinned-container" style="display: none; margin-bottom: 8px;"></div>
+        <div id="chat-messages" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 12px;"></div>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
+          <button class="action-btn" id="btn-send-chat" style="padding: 10px 14px; font-size: 13px; margin-right: 0;">Send</button>
         </div>
-        <div class="state-inspector" id="state-inspector" style="height: 150px; display: none;"></div>
       </div>
 
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        <button class="action-btn" id="btn-download-replay" style="background: #0ea5e9; font-size: 13px; padding: 10px;">💾 Download Replay File</button>
-        <button class="action-btn" id="btn-exit-game" style="background: #475569; font-size: 13px; padding: 10px;">🛑 Exit to Lobby</button>
+      <!-- Gorgeous Deed Card Modal Overlay -->
+      <div id="property-card-modal" class="modal-overlay">
+        <div class="deed-card" id="deed-card-content"></div>
       </div>
-    </div>
+      <div id="floating-notifier" class="floating-notifier"></div>
+      <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,15,30,0.92); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000000; backdrop-filter: blur(12px);"></div>
+    `;
 
-    <!-- Gorgeous Deed Card Modal Overlay -->
-    <div id="property-card-modal" class="modal-overlay">
-      <div class="deed-card" id="deed-card-content"></div>
-    </div>
+    // Copy Match ID listener
+    document.getElementById('btn-copy-match-id')?.addEventListener('click', () => {
+      navigator.clipboard.writeText(lobbyId);
+      triggerFloatingAlert('Match ID copied to clipboard!');
+    });
 
-    <!-- Floating notification area -->
-    <div id="floating-notifier" class="floating-notifier"></div>
+    // Custom HUD Buttons binding
+    document.getElementById('btn-play-card-hud')?.addEventListener('click', () => {
+      triggerFloatingAlert('Click a card in your hand below to play it!');
+    });
 
-    <!-- Victory Celeb Overlay -->
-    <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,15,30,0.92); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000000; backdrop-filter: blur(12px);"></div>
+    document.getElementById('btn-call-uno')?.addEventListener('click', () => {
+      syncEngine?.sendChat("Shouted UNO! 🎴");
+      triggerFloatingAlert('You shouted UNO!');
+    });
+  } else {
+    // 3-Column Standard Layout for Ludo/Monopoly
+    mainContent.style.display = 'grid';
 
-    <!-- Floating Chat Toggle Drawer -->
-    <button class="chat-drawer-toggle" id="btn-chat-toggle">◀</button>
-    <div class="chat-drawer" id="chat-drawer">
-      <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">💬 Lobby Chat</h3>
-      <div id="chat-pinned-container" style="display: none; margin-bottom: 8px;"></div>
-      <div id="chat-messages" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 12px;"></div>
-      <div style="display: flex; gap: 6px;">
-        <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
-        <button class="action-btn" id="btn-send-chat" style="padding: 10px 14px; font-size: 13px; margin-right: 0;">Send</button>
+    mainContent.innerHTML = `
+      <!-- Column 1: Config & Roster -->
+      <div class="sandbox-panel">
+        <div class="title-header">
+          <h1>Lobby Code: <span style="color: #60a5fa;">${lobbyId}</span></h1>
+          <p style="color: var(--text-muted); margin: 0;">Seat: <strong style="color: white;">${playerId}</strong> (${isHost ? 'HOST' : 'PEER'})</p>
+        </div>
+
+        <div id="discord-active-banner" style="display: none;"></div>
+        <div id="spectator-view-banner" style="display: none; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.3); padding: 10px; border-radius: 8px; margin-bottom: 12px;"></div>
+
+        <div style="background: rgba(255,255,255,0.02); border-radius: 8px; padding: 12px; font-size: 11px; font-family: monospace;">
+          <strong>RECONNECT KEY:</strong><br>
+          <code style="color: #f43f5e; word-break: break-all;">Lobby: ${lobbyId} | Player: ${playerId} | Hash: ${secretHash}</code>
+        </div>
+
+        <div id="migration-banner" style="background: rgba(234,179,8,0.1); border: 1px solid rgba(234,179,8,0.3); padding: 10px; border-radius: 8px; display: none; color: #facc15; font-weight: bold; font-size: 13px;">
+          ⚠️ Host Disconnected. Migrating authority...
+        </div>
+
+        <div>
+          <h3>Lobby Active Seats</h3>
+          <div id="player-list"></div>
+        </div>
+
+        <!-- Monopoly property owned ledger -->
+        ${activeGame === 'monopoly-go' ? `
+        <div>
+          <h3>Purchased Properties</h3>
+          <div id="monopoly-ledger" style="font-size: 12px; display: flex; flex-direction: column; gap: 6px; background: rgba(0,0,0,0.15); padding: 12px; border-radius: 8px; border: 1px solid var(--panel-border); max-height: 180px; overflow-y: auto;">No properties owned yet.</div>
+        </div>
+        ` : ''}
+
+        <!-- Discord Pin Box (Host Only) -->
+        ${isHost ? `
+        <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px;">
+          <h3 style="margin-top: 0;">Discord Voice Pin (Host)</h3>
+          <div style="display: flex; gap: 8px;">
+            <input type="text" id="discord-input" placeholder="https://discord.gg/..." style="flex-grow: 1; background: #121722; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 6px; font-size: 12px;">
+            <button class="action-btn" id="btn-pin-discord" style="padding: 8px 14px; font-size: 12px; margin-right: 0; background: #5865f2;">Pin</button>
+          </div>
+        </div>
+        ` : ''}
       </div>
-    </div>
-  `;
+
+      <!-- Column 2: Immersive 3D Tabletop and Control Area -->
+      <div class="sandbox-panel" style="gap: 12px;">
+        <div id="turn-timer-banner" style="background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); padding: 10px; border-radius: 8px; margin-bottom: 4px; display: none;">
+          <div style="display: flex; justify-content: space-between; font-size: 13px; font-weight: bold; margin-bottom: 6px; color: #fca5a5;">
+            <span>⏱️ Turn Timer Active</span>
+            <span id="turn-timer-text">0s left</span>
+          </div>
+          <div style="width: 100%; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden;">
+            <div id="turn-timer-bar" style="width: 100%; height: 100%; background: #ef4444; transition: width 0.2s linear;"></div>
+          </div>
+        </div>
+
+        <div>
+          <h3 style="text-transform: capitalize; margin: 0 0 4px 0;">3D Tabletop Viewport: ${activeGame.replace(/-/g, ' ')}</h3>
+          <p style="font-size: 11px; color: var(--text-muted); margin: 0 0 8px 0;">Drag to rotate table. Scroll to zoom camera angle.</p>
+          
+          <div id="camera-viewport" style="width: 100%; height: 420px; border: 1px solid var(--panel-border); border-radius: 12px; overflow: hidden; background: #0b0f19; position: relative;">
+            <div id="three-canvas-container" style="width: 100%; height: 100%;"></div>
+          </div>
+        </div>
+
+        <div>
+          <!-- Flick physics throwing pad -->
+          <div id="physics-dice-surface" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; text-align: center; ${activeGame === 'uno-go' ? 'display: none;' : ''}">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 6px 0;">Drag and FLICK the dice to roll!</p>
+            <div class="dice-3d-surface">
+              <div id="physical-dice" class="dice-3d">🎲</div>
+            </div>
+          </div>
+
+          <!-- Card Hand GUI panel -->
+          <div id="uno-hand-gui" style="background: rgba(255,255,255,0.01); border: 1px solid var(--panel-border); border-radius: 12px; padding: 12px; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">
+            <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0; font-weight: bold;">Your Hand:</p>
+            <div id="my-cards-container" style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 6px;"></div>
+          </div>
+
+          <div id="actions-panel" style="margin-top: 10px; display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 8px;">
+            <button class="action-btn" id="btn-move" disabled style="${activeGame === 'uno-go' ? 'display: none;' : ''}">Move Piece</button>
+            <button class="action-btn" id="btn-resolve" disabled style="${activeGame === 'uno-go' ? 'display: none;' : ''}">Resolve Space</button>
+            <button class="action-btn" id="btn-buy-property" disabled style="background-color: #10b981; ${activeGame !== 'monopoly-go' ? 'display: none;' : ''}">Buy Property</button>
+            <button class="action-btn" id="btn-draw-card" disabled style="background-color: #f59e0b; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">Draw Card</button>
+            <button class="action-btn" id="btn-end" disabled>End Turn</button>
+          </div>
+          <div class="error-toast" id="error-box"></div>
+        </div>
+      </div>
+
+      <!-- Column 3: Match Events, Inspectors & download buttons -->
+      <div class="sandbox-panel" style="gap: 16px;">
+        <div>
+          <h3 style="margin-bottom: 8px;">Match Events</h3>
+          <div class="event-feed" id="event-feed" style="height: 120px;"></div>
+        </div>
+
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <h3 style="margin: 0;">Replicated State</h3>
+            <button class="action-btn" id="btn-toggle-inspector" style="padding: 4px 10px; font-size: 11px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-border); margin: 0;">Toggle</button>
+          </div>
+          <div class="state-inspector" id="state-inspector" style="height: 150px; display: none;"></div>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button class="action-btn" id="btn-download-replay" style="background: #0ea5e9; font-size: 13px; padding: 10px;">💾 Download Replay File</button>
+          <button class="action-btn" id="btn-exit-game" style="background: #475569; font-size: 13px; padding: 10px;">🛑 Exit to Lobby</button>
+        </div>
+      </div>
+
+      <!-- Gorgeous Deed Card Modal Overlay -->
+      <div id="property-card-modal" class="modal-overlay">
+        <div class="deed-card" id="deed-card-content"></div>
+      </div>
+
+      <!-- Floating notification area -->
+      <div id="floating-notifier" class="floating-notifier"></div>
+
+      <!-- Victory Celeb Overlay -->
+      <div id="victory-overlay" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(10,15,30,0.92); flex-direction: column; align-items: center; justify-content: center; text-align: center; z-index: 1000000; backdrop-filter: blur(12px);"></div>
+
+      <!-- Floating Chat Toggle Drawer -->
+      <button class="chat-drawer-toggle" id="btn-chat-toggle">◀</button>
+      <div class="chat-drawer" id="chat-drawer">
+        <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">💬 Lobby Chat</h3>
+        <div id="chat-pinned-container" style="display: none; margin-bottom: 8px;"></div>
+        <div id="chat-messages" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 12px;"></div>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
+          <button class="action-btn" id="btn-send-chat" style="padding: 10px 14px; font-size: 13px; margin-right: 0;">Send</button>
+        </div>
+      </div>
+    `;
+
+    document.getElementById('btn-pin-discord')?.addEventListener('click', () => {
+      const input = document.getElementById('discord-input') as HTMLInputElement;
+      const link = input.value.trim();
+      if (link) {
+        syncEngine?.dispatch('PIN_DISCORD', { link });
+        input.value = '';
+      }
+    });
+  }
 
   const container = document.getElementById('three-canvas-container') as HTMLDivElement;
   if (container) {
@@ -1418,6 +1561,92 @@ function updateUI(gameState: EngineState) {
     threeRenderer.updateState(gameState, isSpectator, spectatingPlayerId);
   }
 
+  // Update Uno HUD overlay elements dynamically
+  if (activeGame === 'uno-go') {
+    const turnText = document.getElementById('uno-turn-text');
+    const turnDot = document.getElementById('uno-turn-dot');
+    const directionText = document.getElementById('uno-direction-text');
+
+    if (turnText) {
+      const name = `Player ${gameState.turn.currentPlayerId.substring(1)}`;
+      turnText.innerText = `${name}'s Turn`;
+    }
+
+    if (turnDot) {
+      const activePlayer = gameState.players[gameState.turn.currentPlayerId];
+      turnDot.style.background = activePlayer?.color || '#10b981';
+      turnDot.style.boxShadow = `0 0 8px ${activePlayer?.color || '#10b981'}`;
+    }
+
+    if (directionText) {
+      const isClockwise = (gameState.moduleState as any).clockwise !== false;
+      directionText.innerText = isClockwise ? '➡️ CLOCKWISE' : '⬅️ COUNTER-CLOCKWISE';
+    }
+
+    // Populate Roster Count Badges
+    const rosterContainer = document.getElementById('uno-hud-players-roster');
+    if (rosterContainer) {
+      const playerIds = Object.keys(gameState.players);
+
+      rosterContainer.innerHTML = playerIds.map((pid, index) => {
+        const isSelf = pid === activeSeatId;
+        const player = gameState.players[pid];
+        const numCards = player.hand?.length || 0;
+
+        // Position on screen based on seat index
+        let positionStyle = '';
+        if (index === 0) {
+          positionStyle = 'left: 40px; bottom: 140px;';
+        } else if (index === 1) {
+          positionStyle = 'right: 40px; top: 40%; transform: translateY(-50%);';
+        } else if (index === 2) {
+          positionStyle = 'left: 50%; top: 120px; transform: translateX(-50%);';
+        } else if (index === 3) {
+          positionStyle = 'left: 40px; top: 40%; transform: translateY(-50%);';
+        } else {
+          positionStyle = 'left: 40px; top: 20%;';
+        }
+
+        const borderStyle = isSelf
+          ? 'border: 2px solid #ef4444; background: rgba(239, 68, 68, 0.15);'
+          : 'border: 1px solid rgba(255,255,255,0.1); background: rgba(15, 23, 42, 0.85);';
+
+        const isCurrentActive = gameState.turn.currentPlayerId === pid;
+        const turnHighlight = isCurrentActive
+          ? 'box-shadow: 0 0 16px rgba(16,185,129,0.6); border: 2px solid #10b981;'
+          : '';
+
+        return `
+          <div style="position: absolute; ${positionStyle} backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 12px; padding: 10px 14px; width: 130px; display: flex; flex-direction: column; align-items: center; gap: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.35); pointer-events: auto; ${borderStyle} ${turnHighlight}">
+            <div style="display: flex; align-items: center; gap: 6px; width: 100%; justify-content: center;">
+              <span style="font-size: 14px;">${player.emojiFace || '🦊'}</span>
+              <span style="font-size: 11px; font-weight: bold; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 80px;">Player ${pid.substring(1)}</span>
+            </div>
+            <div style="font-size: 18px; font-weight: 800; color: #fbbf24;">
+              ${numCards} <span style="font-size: 10px; color: #94a3b8; font-weight: normal;">CARDS</span>
+            </div>
+            ${isCurrentActive ? `
+              <div style="background: #10b981; color: white; font-size: 8px; font-weight: 800; padding: 1px 6px; border-radius: 4px; letter-spacing: 0.5px; text-transform: uppercase;">ACTIVE</div>
+            ` : ''}
+          </div>
+        `;
+      }).join('');
+    }
+
+    // Update Action Buttons States
+    const unoDrawBtn = document.getElementById('btn-draw-card') as HTMLButtonElement;
+    const unoPlayBtn = document.getElementById('btn-play-card-hud') as HTMLButtonElement;
+    if (unoDrawBtn) {
+      const isMyTurn = gameState.turn.currentPlayerId === activeSeatId && !isSpectator;
+      const isStartPhase = gameState.turn.phase === 'StartTurn' || gameState.turn.phase === 'Move';
+      unoDrawBtn.disabled = !isMyTurn || !isStartPhase;
+
+      if (unoPlayBtn) {
+        unoPlayBtn.disabled = !isMyTurn;
+      }
+    }
+  }
+
   // 2. Draw active seat lists with Monopoly Cash and Uno cards counter indicators
   const playerList = document.getElementById('player-list');
   if (playerList) {
@@ -1482,9 +1711,78 @@ function updateUI(gameState: EngineState) {
         handContainer.innerHTML = '<span style="color: var(--text-muted); font-size:12px;">No cards in hand.</span>';
       } else {
         handContainer.innerHTML = myHand.map(card => {
+          const colorHex = getUnoColorHex(card.color);
           return `
-            <button class="action-btn card-btn" data-card-id="${card.id}" style="background: ${getUnoColorHex(card.color)}; min-width: 68px; height: 94px; border-radius: 8px; border: 2px solid white; color: white; font-weight: bold; font-size: 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.35); text-transform: uppercase; margin-right: 4px;" ${!isMyTurn ? 'disabled' : ''}>
-              ${card.value}
+            <button class="action-btn card-btn" data-card-id="${card.id}" style="
+              background: #ffffff;
+              border: 3px solid #ffffff;
+              width: 76px;
+              height: 110px;
+              border-radius: 10px;
+              padding: 0;
+              margin-right: 6px;
+              box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+              position: relative;
+              cursor: pointer;
+              overflow: hidden;
+              flex-shrink: 0;
+              transition: transform 0.2s, box-shadow 0.2s;
+              pointer-events: auto;
+            " ${!isMyTurn ? 'disabled' : ''}>
+              <!-- Card Color Background -->
+              <div style="
+                background: ${colorHex};
+                width: 100%;
+                height: 100%;
+                border-radius: 8px;
+                position: relative;
+                overflow: hidden;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+              ">
+                <!-- White inner ellipse -->
+                <div style="
+                  background: #ffffff;
+                  width: 58px;
+                  height: 90px;
+                  border-radius: 50%;
+                  transform: rotate(-22deg);
+                  position: absolute;
+                  display: flex;
+                  align-items: center;
+                  justify-content: center;
+                ">
+                  <!-- Centered value -->
+                  <span style="
+                    color: ${colorHex};
+                    font-size: 28px;
+                    font-weight: 900;
+                    transform: rotate(22deg);
+                    font-style: italic;
+                    letter-spacing: -1px;
+                  ">${card.value}</span>
+                </div>
+
+                <!-- Small values top-left / bottom-right -->
+                <span style="
+                  position: absolute;
+                  top: 6px;
+                  left: 8px;
+                  color: #ffffff;
+                  font-size: 11px;
+                  font-weight: 900;
+                ">${card.value}</span>
+                <span style="
+                  position: absolute;
+                  bottom: 6px;
+                  right: 8px;
+                  color: #ffffff;
+                  font-size: 11px;
+                  font-weight: 900;
+                  transform: rotate(180deg);
+                ">${card.value}</span>
+              </div>
             </button>
           `;
         }).join('');
@@ -1634,22 +1932,25 @@ function refreshVisualTimer(gameState: EngineState) {
   const timerBanner = document.getElementById('turn-timer-banner');
   const timerBar = document.getElementById('turn-timer-bar');
   const timerText = document.getElementById('turn-timer-text');
-  if (!timerBanner || !timerBar || !timerText) return;
+  const unoTimerText = document.getElementById('uno-turn-timer');
+  if (!timerBanner && !unoTimerText) return;
 
   const limit = gameState.timerLimit || 0;
   if (limit <= 0) {
-    timerBanner.style.display = 'none';
+    if (timerBanner) timerBanner.style.display = 'none';
     return;
   }
 
-  timerBanner.style.display = 'block';
+  if (timerBanner) timerBanner.style.display = 'block';
 
   const updateBar = () => {
     const elapsed = (Date.now() - (gameState.turnStartedAt || Date.now())) / 1000;
     const remaining = Math.max(0, limit - elapsed);
     const pct = (remaining / limit) * 100;
-    timerBar.style.width = `${pct}%`;
-    timerText.innerText = `${Math.ceil(remaining)}s left`;
+
+    if (timerBar) timerBar.style.width = `${pct}%`;
+    if (timerText) timerText.innerText = `${Math.ceil(remaining)}s left`;
+    if (unoTimerText) unoTimerText.innerText = `${Math.ceil(remaining)}s`;
 
     if (remaining <= 0) {
       if (timerIntervalId !== null) {
@@ -2360,6 +2661,22 @@ function triggerFloatingMoneyAlert(amount: number) {
     badge.style.background = 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
     badge.innerHTML = `💸 -$${Math.abs(amount)}`;
   }
+
+  container.appendChild(badge);
+
+  setTimeout(() => {
+    badge.remove();
+  }, 2000);
+}
+
+function triggerFloatingAlert(text: string) {
+  const container = document.getElementById('floating-notifier');
+  if (!container) return;
+
+  const badge = document.createElement('div');
+  badge.className = 'money-badge';
+  badge.style.background = 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)';
+  badge.innerText = text;
 
   container.appendChild(badge);
 
