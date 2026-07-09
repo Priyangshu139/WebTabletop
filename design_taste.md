@@ -40,8 +40,9 @@ For complex page structures where PC and mobile designs differ fundamentally, re
   - Avatar Profile Card: Set `max-width: 680px` to occupy screen space comfortably.
   - Card Merging: Style the Avatar Card (`border-bottom: none; border-bottom-left-radius: 0; border-bottom-right-radius: 0;`) and the Replay Card below it (`margin-top: 0; border-top-left-radius: 0; border-top-right-radius: 0; border-top: 1px solid var(--panel-border);`) to touch and merge into a single unified card appearance.
 - **Mobile Layout (`.mobile-matchmaking-layout`)**:
-  - Hides Left Sidebar. Stacks vertically (`flex-direction: column !important; align-items: center !important;`) on all mobile viewports <= 960px (including phone landscape).
-  - Restricts the matchmaking actions panel and avatar setup columns to a maximum width of `440px` (`max-width: 440px !important; width: 100% !important;`) so that the cards remain compact and centered, rather than stretching excessively on wide landscape phone screen sizes.
+  - Hides Left Sidebar.
+  - **Landscape Phones (600px - 960px)**: Displays side-by-side: compact actions panel on the left (shrunk to `190px` width) and setup columns on the right. Hides button description sub-text (`span { display: none; }`) and centers text with tight padding (`10px`) to keep buttons compact.
+  - **Portrait Phones (<= 600px)**: Stacks vertically (`flex-direction: column !important; align-items: center !important;`) with a maximum card width of `440px`.
 
 ---
 
