@@ -833,6 +833,24 @@ body {
     box-sizing: border-box;
   }
 
+  .matchmaking-container {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: 16px !important;
+    padding: 16px !important;
+  }
+
+  .matchmaking-actions-panel {
+    max-width: 440px !important;
+    width: 100% !important;
+  }
+
+  .matchmaking-setup-column {
+    max-width: 440px !important;
+    width: 100% !important;
+  }
+
   .lobby-main-display {
     display: flex !important;
     flex-direction: column !important;
