@@ -136,8 +136,8 @@ When hovering elements, keep animations subtle to feel premium:
 }
 ```
 
-### 3.6. Mobile Drawers & Viewports (`100dvh`)
-When building full-height drawer overlays on mobile devices, use the dynamic viewport height `100dvh` (rather than standard `100vh`) to prevent text inputs or buttons at the bottom (like Chat Send or Rule Save/Cancel) from being pushed off-screen by browser toolbars or virtual keyboards. Also, shrink padding on mobile screens for safe area bounds:
+### 3.6. Mobile Drawers & Viewports (`100dvh` & `75%` Width)
+When building full-height drawer overlays on mobile devices, use the dynamic viewport height `100dvh` (rather than standard `100vh`) to prevent inputs or buttons at the bottom (like Chat Send or Rule Save/Cancel) from being pushed off-screen. Additionally, configure drawer widths to `75%` instead of `100%` on mobile viewports so that a portion of the main screen remains visible, giving the UI room to breathe.
 ```css
 .chat-drawer, .rules-drawer {
   height: 100vh;
@@ -145,9 +145,30 @@ When building full-height drawer overlays on mobile devices, use the dynamic vie
 }
 
 @media (max-width: 960px) {
-  .chat-drawer, .rules-drawer {
+  .chat-drawer {
+    width: 75% !important;
+    right: -75% !important;
     height: 100dvh !important;
-    padding: 16px 12px !important; /* Muted padding so bottom buttons fit completely */
+    padding: 16px 12px !important;
+  }
+  
+  .chat-drawer.active {
+    right: 0 !important;
+  }
+
+  .chat-drawer-toggle.active {
+    right: calc(75% - 36px) !important;
+  }
+
+  .rules-drawer {
+    width: 75% !important;
+    left: -75% !important;
+    height: 100dvh !important;
+    padding: 16px 12px !important;
+  }
+  
+  .rules-drawer.active {
+    left: 0 !important;
   }
 }
 ```
