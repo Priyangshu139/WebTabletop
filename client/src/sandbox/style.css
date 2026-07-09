@@ -803,7 +803,7 @@ body {
 }
 
 .matchmaking-actions-panel {
-  width: 190px;
+  width: 150px;
   flex-shrink: 0;
 }
 
@@ -868,8 +868,8 @@ body {
 
   /* Chat Drawer adjustments on phone */
   .chat-drawer {
-    width: 75% !important;
-    right: -75% !important;
+    width: 320px !important;
+    right: -320px !important;
     height: 100dvh !important;
     padding: 16px 12px !important;
   }
@@ -883,13 +883,13 @@ body {
   }
   
   .chat-drawer-toggle.active {
-    right: calc(75% - 36px) !important;
+    right: calc(320px - 36px) !important;
   }
 
   /* Rules Drawer adjustments on phone */
   .rules-drawer {
-    width: 75% !important;
-    left: -75% !important;
+    width: 320px !important;
+    left: -320px !important;
     height: 100dvh !important;
     padding: 16px 12px !important;
   }
