@@ -941,10 +941,10 @@ body {
   /* Chat Drawer adjustments on phone */
   .chat-drawer {
     width: 45% !important;
-    right: -45% !important;
+    right: -100% !important; /* Push fully offscreen — accounts for min-width being wider than 45% */
     height: 100dvh !important;
     padding: 16px 12px !important;
-    min-width: 260px !important; /* Safety minimum width on extremely narrow screens */
+    min-width: 260px !important;
   }
   
   .chat-drawer.active {
@@ -962,10 +962,10 @@ body {
   /* Rules Drawer adjustments on phone */
   .rules-drawer {
     width: 45% !important;
-    left: -45% !important;
+    left: -100% !important; /* Push fully offscreen — accounts for min-width being wider than 45% */
     height: 100dvh !important;
     padding: 16px 12px !important;
-    min-width: 260px !important; /* Safety minimum width */
+    min-width: 260px !important;
   }
   
   .rules-drawer.active {
