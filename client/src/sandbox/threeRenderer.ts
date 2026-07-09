@@ -25,10 +25,11 @@ export class ThreeRenderer {
   private pawnsMap: Map<string, THREE.Mesh | THREE.Group> = new Map();
   private pawnTargetsMap: Map<string, THREE.Vector3> = new Map();
   private tilesMap: (THREE.Mesh | THREE.Group)[] = [];
-  private cardsMap: THREE.Mesh[] = [];
+  private cardsMap: THREE.Object3D[] = [];
   private avatarsMap: Map<string, THREE.Group> = new Map();
   private tableMesh!: THREE.Mesh;
   private deckMesh!: THREE.Group;
+  private unoLogoMesh!: THREE.Mesh;
 
   // Active state
   private currentState: EngineState | null = null;
@@ -64,13 +65,22 @@ export class ThreeRenderer {
     this.container.appendChild(this.renderer.domElement);
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+    const ambientLight = new THREE.AmbientLight(0x4b5563, 0.45); // soft warm gray ambient
     this.scene.add(ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
-    dirLight.position.set(5, 10, 7);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    dirLight.position.set(5, 12, 7);
     dirLight.castShadow = true;
     this.scene.add(dirLight);
+
+    // Warm table spotlight for dramatic voxel tabletop look
+    const spotLight = new THREE.SpotLight(0xffedd5, 1.8, 18, Math.PI / 3, 0.6, 0.8);
+    spotLight.position.set(0, 8, 0);
+    spotLight.target.position.set(0, 0, 0);
+    spotLight.castShadow = true;
+    spotLight.shadow.mapSize.width = 1024;
+    spotLight.shadow.mapSize.height = 1024;
+    this.scene.add(spotLight);
 
     // Window Resize Handler
     window.addEventListener('resize', this.onResize);
@@ -102,6 +112,66 @@ export class ThreeRenderer {
     const supportMesh = new THREE.Mesh(supportGeom, supportMat);
     supportMesh.position.y = -1.6;
     this.scene.add(supportMesh);
+
+    // Add stylized UNO logo on the center of the table (initially hidden)
+    const logoCanvas = document.createElement('canvas');
+    logoCanvas.width = 512;
+    logoCanvas.height = 512;
+    const lctx = logoCanvas.getContext('2d');
+    if (lctx) {
+      lctx.fillStyle = 'rgba(0,0,0,0)';
+      lctx.fillRect(0, 0, 512, 512);
+
+      lctx.save();
+      lctx.translate(256, 256);
+      lctx.rotate(-0.15); // tilt like in reference images
+
+      // Outermost glow
+      lctx.shadowColor = 'rgba(0,0,0,0.5)';
+      lctx.shadowBlur = 15;
+
+      // Outer yellow ellipse
+      lctx.fillStyle = '#fbbf24';
+      lctx.beginPath();
+      lctx.ellipse(0, 0, 180, 90, 0, 0, Math.PI * 2);
+      lctx.fill();
+
+      // Inner red ellipse
+      lctx.shadowBlur = 0;
+      lctx.fillStyle = '#ef4444';
+      lctx.beginPath();
+      lctx.ellipse(0, 0, 165, 76, 0, 0, Math.PI * 2);
+      lctx.fill();
+
+      // UNO Text
+      lctx.font = 'italic bold 100px sans-serif';
+      lctx.textAlign = 'center';
+      lctx.textBaseline = 'middle';
+      
+      // Black offset for outline shadow
+      lctx.fillStyle = '#1e1b4b';
+      lctx.fillText('UNO', -4, 4);
+
+      // White main text
+      lctx.fillStyle = '#ffffff';
+      lctx.fillText('UNO', 0, 0);
+
+      lctx.restore();
+    }
+    
+    const logoTex = new THREE.CanvasTexture(logoCanvas);
+    const logoGeom = new THREE.PlaneGeometry(3.5, 3.5);
+    const logoMat = new THREE.MeshBasicMaterial({
+      map: logoTex,
+      transparent: true,
+      depthWrite: false, // avoid z-fighting
+      opacity: 0.85
+    });
+    this.unoLogoMesh = new THREE.Mesh(logoGeom, logoMat);
+    this.unoLogoMesh.rotation.x = -Math.PI / 2;
+    this.unoLogoMesh.position.set(0, 0.005, 0); // slightly above wood
+    this.unoLogoMesh.visible = false;
+    this.scene.add(this.unoLogoMesh);
   }
 
   private setupCameraControls() {
@@ -193,6 +263,7 @@ export class ThreeRenderer {
 
     // 2. Synchronize board elements depending on activeModule
     const activeModule = state.activeModule || 'ludo-go-classic';
+    this.unoLogoMesh.visible = (activeModule === 'uno-go');
     this.clearGameComponents();
 
     if (activeModule === 'uno-go') {
@@ -225,56 +296,88 @@ export class ThreeRenderer {
       if (!group) {
         group = new THREE.Group();
 
-        // Sitting Chest Mesh
-        const chestGeom = new THREE.CylinderGeometry(0.3, 0.4, 0.8, 8);
-        const chestMat = new THREE.MeshStandardMaterial({
-          color: state.players[pid].color,
-          roughness: 0.5
-        });
-        const chestMesh = new THREE.Mesh(chestGeom, chestMat);
-        chestMesh.position.y = 0.4;
-        group.add(chestMesh);
+        const color = state.players[pid].color || '#3b82f6';
+        const skinToneColor = this.getSkinToneHex(state.players[pid].skinTone || 'medium');
+        
+        // Hair color selection based on playerId to make them unique
+        const hairColors = ['#4a3728', '#1a1a1a', '#d4af37', '#9333ea', '#2563eb', '#16a34a'];
+        const pIndex = parseInt(pid.substring(1)) || 0;
+        const hairColor = hairColors[pIndex % hairColors.length];
 
-        // Head Sphere Mesh
-        const headGeom = new THREE.SphereGeometry(0.25, 12, 12);
-        const headMat = new THREE.MeshStandardMaterial({
-          color: 0xffcc99, // default skin tone
-          roughness: 0.6
-        });
+        // 1. Torso (Hoodie/Body)
+        const torsoGeom = new THREE.BoxGeometry(0.65, 0.8, 0.4);
+        const torsoMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
+        const torsoMesh = new THREE.Mesh(torsoGeom, torsoMat);
+        torsoMesh.position.y = 0.4;
+        torsoMesh.castShadow = true;
+        torsoMesh.receiveShadow = true;
+        group.add(torsoMesh);
+
+        // 2. Head
+        const headGeom = new THREE.BoxGeometry(0.44, 0.44, 0.44);
+        const headMat = new THREE.MeshStandardMaterial({ color: skinToneColor, roughness: 0.6 });
         const headMesh = new THREE.Mesh(headGeom, headMat);
-        headMesh.position.y = 0.95;
+        headMesh.position.set(0, 0.95, 0);
+        headMesh.castShadow = true;
         group.add(headMesh);
 
-        // 3D Arms (Chairs armrests)
-        const armGeom = new THREE.BoxGeometry(0.12, 0.35, 0.12);
-        const armMat = new THREE.MeshStandardMaterial({ color: 0x333333 });
-        const leftArm = new THREE.Mesh(armGeom, armMat);
-        leftArm.position.set(-0.35, 0.3, 0.1);
-        const rightArm = leftArm.clone();
-        rightArm.position.x = 0.35;
-        group.add(leftArm);
-        group.add(rightArm);
+        // 3. Hair (Blocky haircut)
+        const hairGroup = new THREE.Group();
+        const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.8 });
+        
+        // Top hair cap
+        const topHair = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.12, 0.48), hairMat);
+        topHair.position.set(0, 1.15, 0);
+        hairGroup.add(topHair);
 
-        // Face text sprite displaying player emoji face!
+        // Back hair
+        const backHair = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.35, 0.12), hairMat);
+        backHair.position.set(0, 0.98, -0.2);
+        hairGroup.add(backHair);
+
+        // Sides hair
+        const leftHair = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.46), hairMat);
+        leftHair.position.set(-0.2, 1.0, 0.01);
+        const rightHair = leftHair.clone();
+        rightHair.position.x = 0.2;
+        hairGroup.add(leftHair);
+        hairGroup.add(rightHair);
+        
+        group.add(hairGroup);
+
+        // 4. Face text sprite displaying player emoji face!
         const canvas = document.createElement('canvas');
-        canvas.width = 64;
-        canvas.height = 64;
+        canvas.width = 128;
+        canvas.height = 128;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.font = '48px sans-serif';
+          ctx.font = '96px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
-          ctx.fillText(state.players[pid].emojiFace || '🦊', 32, 32);
+          ctx.fillText(state.players[pid].emojiFace || '🦊', 64, 64);
         }
         const faceTex = new THREE.CanvasTexture(canvas);
         const spriteMat = new THREE.SpriteMaterial({ map: faceTex });
         const faceSprite = new THREE.Sprite(spriteMat);
-        faceSprite.position.set(0, 0.95, 0.28);
-        faceSprite.scale.set(0.48, 0.48, 0.48);
+        faceSprite.position.set(0, 0.95, 0.23); // positioned right on front face of voxel head
+        faceSprite.scale.set(0.44, 0.44, 0.44);
         group.add(faceSprite);
 
+        // 5. Arms
+        const armMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
+        const armGeom = new THREE.BoxGeometry(0.14, 0.4, 0.14);
+        
+        const leftArm = new THREE.Mesh(armGeom, armMat);
+        leftArm.position.set(-0.4, 0.45, 0.1);
+        leftArm.rotation.x = -0.4;
+        
+        const rightArm = new THREE.Mesh(armGeom, armMat);
+        rightArm.position.set(0.4, 0.45, 0.1);
+        rightArm.rotation.x = -0.4;
+        group.add(leftArm);
+        group.add(rightArm);
+
         group.position.set(x, 0, z);
-        // Turn avatar to face the center of the table (lookAt 0,0,0)
         group.lookAt(0, 0, 0);
 
         this.scene.add(group);
@@ -466,59 +569,41 @@ export class ThreeRenderer {
     // 1. Draw central card piles (deck stack & discard pile)
     this.deckMesh = new THREE.Group();
 
-    // Draw deck stack of cards
-    const cardHeight = 0.015;
-    for (let i = 0; i < 8; i++) {
-      const cardGeom = new THREE.BoxGeometry(0.6, cardHeight, 0.9);
-      const cardMat = new THREE.MeshStandardMaterial({
-        color: 0x3b82f6, // Blue card back color
-        roughness: 0.6
-      });
-      const cardMesh = new THREE.Mesh(cardGeom, cardMat);
-      cardMesh.position.y = i * cardHeight;
-      this.deckMesh.add(cardMesh);
+    // Draw deck stack of cards (face down)
+    const cardThickness = 0.012;
+    for (let i = 0; i < 12; i++) {
+      const card = this.createUnoCardMesh('red', 'Uno', false);
+      card.rotation.x = -Math.PI / 2;
+      card.position.set(-0.7, 0.01 + i * cardThickness, 0);
+      this.deckMesh.add(card);
     }
-    this.deckMesh.position.set(-0.6, 0.01, 0);
+    this.deckMesh.position.set(0, 0, 0); // Keep container at origin, positioning is handled per card
     this.scene.add(this.deckMesh);
 
-    // Discard Pile card (lying flat)
-    const topDiscard = state.moduleState.unoDiscardPile?.[state.moduleState.unoDiscardPile.length - 1];
-    const discardGeom = new THREE.BoxGeometry(0.6, 0.02, 0.9);
-    const discardColor = this.getUnoCardColor(topDiscard?.color || 'red');
-    const discardMat = new THREE.MeshStandardMaterial({
-      color: discardColor,
-      roughness: 0.4
-    });
-    const discardMesh = new THREE.Mesh(discardGeom, discardMat);
-    discardMesh.position.set(0.6, 0.01, 0);
-    this.scene.add(discardMesh);
-    this.cardsMap.push(discardMesh);
+    // Draw 3D Floating Pile Label for Draw Pile
+    const drawCount = state.moduleState.unoDeck?.length || 0;
+    const drawLabel = this.createPileLabelSprite('DRAW PILE', drawCount);
+    drawLabel.position.set(-0.7, 0.65, 0);
+    this.scene.add(drawLabel);
+    this.cardsMap.push(drawLabel);
 
-    // Draw card value label on the top card
-    const canvas = document.createElement('canvas');
-    canvas.width = 64;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = 'rgba(255,255,255,0.01)';
-      ctx.fillRect(0,0,64,128);
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillStyle = 'white';
-      ctx.textAlign = 'center';
-      ctx.fillText(topDiscard ? String(topDiscard.value).substring(0, 5) : 'Uno', 32, 64);
+    // Discard Pile card (lying flat, face up)
+    const topDiscard = state.moduleState.unoDiscardPile?.[state.moduleState.unoDiscardPile.length - 1];
+    if (topDiscard) {
+      const discardMesh = this.createUnoCardMesh(topDiscard.color, String(topDiscard.value), true);
+      discardMesh.rotation.x = -Math.PI / 2;
+      discardMesh.rotation.z = 0.25; // slight organic rotation angle
+      discardMesh.position.set(0.7, 0.01, 0);
+      this.scene.add(discardMesh);
+      this.cardsMap.push(discardMesh);
     }
-    const discardTex = new THREE.CanvasTexture(canvas);
-    const discardLabelGeom = new THREE.PlaneGeometry(0.5, 0.8);
-    const discardLabelMat = new THREE.MeshBasicMaterial({
-      map: discardTex,
-      transparent: true,
-      side: THREE.DoubleSide
-    });
-    const discardLabelMesh = new THREE.Mesh(discardLabelGeom, discardLabelMat);
-    discardLabelMesh.rotation.x = -Math.PI / 2;
-    discardLabelMesh.position.set(0.6, 0.025, 0);
-    this.scene.add(discardLabelMesh);
-    this.cardsMap.push(discardLabelMesh);
+
+    // Draw 3D Floating Pile Label for Discard Pile
+    const discardCount = state.moduleState.unoDiscardPile?.length || 0;
+    const discardLabel = this.createPileLabelSprite('DISCARD PILE', discardCount);
+    discardLabel.position.set(0.7, 0.65, 0);
+    this.scene.add(discardLabel);
+    this.cardsMap.push(discardLabel);
 
     // 2. Draw active cards in player hands (offset in front of their seats)
     const playerIds = Object.keys(state.players);
@@ -542,20 +627,12 @@ export class ThreeRenderer {
         const cx = hx + 0.4 * Math.sin(cardAngle);
         const cz = hz + 0.4 * Math.cos(cardAngle);
 
-        const cardBox = new THREE.BoxGeometry(0.35, 0.55, 0.02);
-        
-        // Hide details of other players' hands (facing away or colored grey/card-back blue)
         const isSelf = !this.isSpectator && (pid === targetPId);
-        const cardColor = isSelf ? this.getUnoCardColor(card.color) : 0x3b82f6;
-
-        const cardMat = new THREE.MeshStandardMaterial({
-          color: cardColor,
-          roughness: 0.5
-        });
-        const cardMesh = new THREE.Mesh(cardBox, cardMat);
+        
+        const cardMesh = this.createUnoCardMesh(card.color, String(card.value), isSelf);
         cardMesh.position.set(cx, 0.35, cz);
         
-        // Face the card up towards the player's angle seat
+        // Face the card flat/upwards towards the player's seat angle
         cardMesh.lookAt(hx, 0.35, hz);
         
         // Tilt cards backwards slightly (looking like they are held)
@@ -563,50 +640,11 @@ export class ThreeRenderer {
 
         this.scene.add(cardMesh);
         this.cardsMap.push(cardMesh);
-
-        // Value text if self card
-        if (isSelf) {
-          const cardCanvas = document.createElement('canvas');
-          cardCanvas.width = 64;
-          cardCanvas.height = 128;
-          const cardCtx = cardCanvas.getContext('2d');
-          if (cardCtx) {
-            cardCtx.fillStyle = 'rgba(255,255,255,0.01)';
-            cardCtx.fillRect(0,0,64,128);
-            cardCtx.font = 'bold 36px sans-serif';
-            cardCtx.fillStyle = 'white';
-            cardCtx.textAlign = 'center';
-            cardCtx.fillText(String(card.value).substring(0, 5), 32, 64);
-          }
-          const cardTex = new THREE.CanvasTexture(cardCanvas);
-          const cardLabelGeom = new THREE.PlaneGeometry(0.3, 0.48);
-          const cardLabelMat = new THREE.MeshBasicMaterial({
-            map: cardTex,
-            transparent: true,
-            side: THREE.DoubleSide
-          });
-          const cardLabelMesh = new THREE.Mesh(cardLabelGeom, cardLabelMat);
-          cardLabelMesh.position.set(cx, 0.35, cz);
-          cardLabelMesh.lookAt(hx, 0.35, hz);
-          cardLabelMesh.rotateX(0.2);
-          cardLabelMesh.translateZ(0.012); // slightly offset forward to avoid clipping
-
-          this.scene.add(cardLabelMesh);
-          this.cardsMap.push(cardLabelMesh);
-        }
       });
     });
   }
 
-  private getUnoCardColor(color: string): number {
-    switch (String(color).toLowerCase()) {
-      case 'red': return 0xef4444;
-      case 'blue': return 0x3b82f6;
-      case 'green': return 0x10b981;
-      case 'yellow': return 0xeab308;
-      default: return 0x6b7280; // grey
-    }
-  }
+
 
   private clearGameComponents() {
     this.tilesMap.forEach(mesh => this.scene.remove(mesh));
@@ -655,6 +693,177 @@ export class ThreeRenderer {
 
     this.renderer.render(this.scene, this.camera);
   };
+
+  private getSkinToneHex(tone: string): string {
+    switch (tone) {
+      case 'light': return '#ffdbac';
+      case 'medium': return '#f1c27d';
+      case 'dark': return '#ae703f';
+      default: return '#e0ac69';
+    }
+  }
+
+  private createUnoCardMesh(cardColor: string, cardValue: string, isFaceUp: boolean): THREE.Mesh {
+    const cardWidth = 0.35;
+    const cardHeight = 0.55;
+    const cardThickness = 0.012;
+
+    const cardGeom = new THREE.BoxGeometry(cardWidth, cardHeight, cardThickness);
+    
+    const frontTex = this.getUnoCardTexture(cardColor, cardValue, false);
+    const backTex = this.getUnoCardTexture(cardColor, cardValue, true);
+
+    const paperEdgeMat = new THREE.MeshStandardMaterial({ color: 0xeeeeee, roughness: 0.8 });
+    const frontMat = new THREE.MeshStandardMaterial({ map: frontTex, roughness: 0.4 });
+    const backMat = new THREE.MeshStandardMaterial({ map: backTex, roughness: 0.4 });
+
+    const materials = [
+      paperEdgeMat, // +X
+      paperEdgeMat, // -X
+      paperEdgeMat, // +Y
+      paperEdgeMat, // -Y
+      isFaceUp ? frontMat : backMat,  // +Z (front)
+      isFaceUp ? backMat : frontMat   // -Z (back)
+    ];
+
+    const mesh = new THREE.Mesh(cardGeom, materials);
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    return mesh;
+  }
+
+  private getUnoCardTexture(cardColorName: string, cardValue: string, isBack: boolean): THREE.Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return new THREE.Texture();
+
+    if (isBack) {
+      // Draw Card Back
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, 128, 256);
+      
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 4;
+      ctx.strokeRect(4, 4, 120, 248);
+
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(6, 6, 116, 244);
+
+      ctx.save();
+      ctx.translate(64, 128);
+      ctx.rotate(-0.3);
+      ctx.fillStyle = '#fbbf24';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 50, 26, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.font = 'italic bold 28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#000';
+      ctx.shadowBlur = 4;
+      ctx.fillText('UNO', 0, 0);
+      ctx.restore();
+    } else {
+      // Draw Card Front
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 128, 256);
+
+      const hexColor = this.getUnoColorHexStr(cardColorName);
+      ctx.fillStyle = hexColor;
+      ctx.fillRect(4, 4, 120, 248);
+
+      ctx.save();
+      ctx.translate(64, 128);
+      ctx.rotate(-0.35);
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 48, 88, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      ctx.fillStyle = hexColor;
+      ctx.font = 'bold 72px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(cardValue, 64, 128);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      
+      ctx.fillText(cardValue, 20, 26);
+      
+      ctx.save();
+      ctx.translate(108, 230);
+      ctx.rotate(Math.PI);
+      ctx.fillText(cardValue, 0, 0);
+      ctx.restore();
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }
+
+  private getUnoColorHexStr(color: string): string {
+    switch (String(color).toLowerCase()) {
+      case 'red': return '#ef4444';
+      case 'blue': return '#3b82f6';
+      case 'green': return '#10b981';
+      case 'yellow': return '#fbbf24';
+      case 'wild': return '#1e1b4b';
+      default: return '#374151';
+    }
+  }
+
+  private createPileLabelSprite(title: string, count: number): THREE.Sprite {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+      ctx.lineWidth = 4;
+      this.drawRoundedRect(ctx, 4, 4, 248, 120, 16);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.font = 'bold 24px sans-serif';
+      ctx.fillStyle = '#94a3b8';
+      ctx.textAlign = 'center';
+      ctx.fillText(title, 128, 45);
+
+      ctx.font = 'bold 44px sans-serif';
+      ctx.fillStyle = '#ffffff';
+      ctx.textAlign = 'center';
+      ctx.fillText(String(count), 128, 95);
+    }
+    const tex = new THREE.CanvasTexture(canvas);
+    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
+    const sprite = new THREE.Sprite(mat);
+    sprite.scale.set(1.2, 0.6, 1);
+    return sprite;
+  }
+
+  private drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+  }
 
   public destroy() {
     if (this.animationFrameId !== null) {
