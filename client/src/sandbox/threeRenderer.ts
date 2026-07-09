@@ -631,13 +631,6 @@ export class ThreeRenderer {
     this.deckMesh.position.set(0, 0, 0); // Keep container at origin, positioning is handled per card
     this.scene.add(this.deckMesh);
 
-    // Draw 3D Floating Pile Label for Draw Pile
-    const drawCount = state.moduleState.unoDeck?.length || 0;
-    const drawLabel = this.createPileLabelSprite('DRAW PILE', drawCount);
-    drawLabel.position.set(-0.7, 0.65, 0);
-    this.scene.add(drawLabel);
-    this.cardsMap.push(drawLabel);
-
     // Discard Pile card (lying flat, face up)
     const topDiscard = state.moduleState.unoDiscardPile?.[state.moduleState.unoDiscardPile.length - 1];
     if (topDiscard) {
@@ -648,13 +641,6 @@ export class ThreeRenderer {
       this.scene.add(discardMesh);
       this.cardsMap.push(discardMesh);
     }
-
-    // Draw 3D Floating Pile Label for Discard Pile
-    const discardCount = state.moduleState.unoDiscardPile?.length || 0;
-    const discardLabel = this.createPileLabelSprite('DISCARD PILE', discardCount);
-    discardLabel.position.set(0.7, 0.65, 0);
-    this.scene.add(discardLabel);
-    this.cardsMap.push(discardLabel);
 
     // 2. Draw active cards in player hands (offset in front of their seats)
     const playerIds = Object.keys(state.players);
@@ -872,49 +858,9 @@ export class ThreeRenderer {
     }
   }
 
-  private createPileLabelSprite(title: string, count: number): THREE.Sprite {
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 128;
-    const ctx = canvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
-      ctx.lineWidth = 4;
-      this.drawRoundedRect(ctx, 4, 4, 248, 120, 16);
-      ctx.fill();
-      ctx.stroke();
 
-      ctx.font = 'bold 24px sans-serif';
-      ctx.fillStyle = '#94a3b8';
-      ctx.textAlign = 'center';
-      ctx.fillText(title, 128, 45);
 
-      ctx.font = 'bold 44px sans-serif';
-      ctx.fillStyle = '#ffffff';
-      ctx.textAlign = 'center';
-      ctx.fillText(String(count), 128, 95);
-    }
-    const tex = new THREE.CanvasTexture(canvas);
-    const mat = new THREE.SpriteMaterial({ map: tex, transparent: true });
-    const sprite = new THREE.Sprite(mat);
-    sprite.scale.set(1.2, 0.6, 1);
-    return sprite;
-  }
 
-  private drawRoundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
-    ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
-    ctx.closePath();
-  }
 
   public destroy() {
     if (this.animationFrameId !== null) {

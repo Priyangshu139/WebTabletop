@@ -1018,7 +1018,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
 
           <!-- Bottom Actions Bar -->
           <div style="position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; pointer-events: auto; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); padding: 8px 24px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 25px rgba(0,0,0,0.5);">
-            <button class="action-btn" id="btn-play-card-hud" style="background: #16a34a; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            <button class="action-btn" id="btn-play-card-hud" style="display: none; background: #16a34a; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; align-items: center; gap: 6px; transition: all 0.2s;">
               🟢 PLAY CARD
             </button>
             <button class="action-btn" id="btn-draw-card" disabled style="background: #2563eb; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
@@ -1027,7 +1027,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
             <button class="action-btn" id="btn-call-uno" style="background: #dc2626; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
               🔴 CALL UNO
             </button>
-            <button class="action-btn" id="btn-toggle-inspector" style="background: #475569; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+            <button class="action-btn" id="btn-toggle-inspector" style="display: none; background: #475569; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; align-items: center; gap: 6px; transition: all 0.2s;">
               👁️ VIEW CARDS
             </button>
           </div>
