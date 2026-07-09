@@ -34,10 +34,14 @@ function getSavedAvatar() {
 }
 
 function saveAvatarTraits() {
-  const emoji = (document.getElementById('avatar-emoji') as HTMLSelectElement).value;
-  const skin = (document.getElementById('avatar-skin') as HTMLSelectElement).value;
-  const activeColorEl = document.querySelector('#profile-colors-selector .avatar-color-square.active') as HTMLElement;
+  const emojiEl = document.querySelector('.avatar-emoji-select') as HTMLSelectElement;
+  const skinEl = document.querySelector('.avatar-skin-select') as HTMLSelectElement;
+  const activeColorEl = document.querySelector('.avatar-color-selector .avatar-color-square.active') as HTMLElement;
+
+  const emoji = emojiEl ? emojiEl.value : '🦊';
+  const skin = skinEl ? skinEl.value : 'light';
   const color = activeColorEl ? activeColorEl.dataset.color || '#ef4444' : '#ef4444';
+
   localStorage.setItem('webtabletop_avatar', JSON.stringify({ emojiFace: emoji, color, skinTone: skin }));
 }
 
