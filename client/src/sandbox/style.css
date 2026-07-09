@@ -761,12 +761,70 @@ body {
 }
 
 .rule-cycle-btn:hover {
-  background: rgba(168, 85, 247, 0.2);
-  border-color: #a855f7;
+  background: rgba(99, 102, 241, 0.2);
+  border-color: #6366f1;
 }
 
 .rule-cycle-val {
   font-size: 13px;
   font-weight: bold;
-  color: #c084fc;
+  color: #818cf8;
+}
+
+/* Mobile-Responsive Styling */
+@media (max-width: 768px) {
+  #app {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .lobby-sidebar {
+    display: none !important;
+  }
+
+  .lobby-main-display {
+    flex-direction: column !important;
+    height: auto !important;
+    align-items: stretch !important;
+    overflow-y: auto !important;
+    padding: 16px !important;
+    gap: 16px !important;
+  }
+
+  .sandbox-panel {
+    max-width: 100% !important;
+    min-height: auto !important;
+    padding: 16px !important;
+  }
+  
+  .game-selection-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Chat Drawer adjustments on phone */
+  .chat-drawer {
+    width: 100% !important;
+    right: -100% !important;
+  }
+  
+  .chat-drawer.active {
+    right: 0 !important;
+  }
+
+  .chat-drawer-toggle {
+    z-index: 10001 !important;
+  }
+  
+  .chat-drawer-toggle.active {
+    right: calc(100% - 36px) !important;
+  }
+
+  /* Rules Drawer adjustments on phone */
+  .rules-drawer {
+    width: 100% !important;
+    left: -100% !important;
+  }
+  
+  .rules-drawer.active {
+    left: 0 !important;
+  }
 }

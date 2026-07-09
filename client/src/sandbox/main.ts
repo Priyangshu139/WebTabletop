@@ -91,7 +91,7 @@ function renderMatchmaking() {
     <!-- Main Content Area -->
     <div class="lobby-main-display" id="lobby-main-content">
       <!-- Welcome & Setup pane -->
-      <div class="sandbox-panel" style="width: 500px; margin: auto;">
+      <div class="sandbox-panel" style="width: 100%; max-width: 500px; margin: auto; box-sizing: border-box;">
         <div class="title-header">
           <h1>Configure Avatar Profile</h1>
           <p style="color: var(--text-muted); margin: 0;">Set up your seated avatar look before joining a room.</p>
@@ -289,7 +289,7 @@ function renderJoinCodePane() {
   if (!mainContent) return;
 
   mainContent.innerHTML = `
-    <div class="sandbox-panel" style="width: 420px; margin: auto; border: 1px solid var(--panel-border); border-radius: 12px; padding: 24px; background: #0f172a; box-shadow: 0 10px 25px rgba(0,0,0,0.5);">
+    <div class="sandbox-panel" style="width: 100%; max-width: 420px; margin: auto; border: 1px solid var(--panel-border); border-radius: 12px; padding: 24px; background: #0f172a; box-shadow: 0 10px 25px rgba(0,0,0,0.5); box-sizing: border-box;">
       <div class="title-header" style="margin-bottom: 20px;">
         <h1 style="margin: 0; font-size: 24px; color: #3b82f6;">Join Tabletop Lobby</h1>
         <p style="color: var(--text-muted); font-size: 13px; margin: 4px 0 0 0;">Enter the 8-character lobby code to connect.</p>
