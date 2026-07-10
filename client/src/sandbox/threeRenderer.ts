@@ -755,7 +755,7 @@ export class ThreeRenderer {
       const dx = e.clientX - this.previousMouseX;
       const dy = e.clientY - this.previousMouseY;
 
-      this.theta += dx * 0.007 * this.cameraSensitivity; // direct horizontal rotation
+      this.theta -= dx * 0.007 * this.cameraSensitivity; // direct horizontal rotation
       this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi + dy * 0.005 * this.cameraSensitivity)); // direct vertical tilt
 
       this.previousMouseX = e.clientX;
@@ -796,7 +796,7 @@ export class ThreeRenderer {
         const dx = e.touches[0].clientX - this.previousMouseX;
         const dy = e.touches[0].clientY - this.previousMouseY;
 
-        this.theta += dx * 0.007 * this.cameraSensitivity;
+        this.theta -= dx * 0.007 * this.cameraSensitivity;
         this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi + dy * 0.005 * this.cameraSensitivity));
 
         this.previousMouseX = e.touches[0].clientX;
