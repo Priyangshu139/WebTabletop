@@ -191,35 +191,131 @@ export class ThreeRenderer {
     floorMesh.receiveShadow = true;
     this.scene.add(floorMesh);
 
-    // 2. Room Walls (back, left, right)
+    // 2. Room Walls in 360 degrees (back, left, right, front) forming a closed 24x24x16 room
     const wallMat = new THREE.MeshStandardMaterial({
       color: 0x1e293b, // Dark slate blue wall color
       roughness: 0.9,
       metalness: 0.0
     });
 
-    const backWall = new THREE.Mesh(new THREE.PlaneGeometry(30, 16), wallMat);
+    const backWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), wallMat);
     backWall.position.set(0, 4.9, -12);
     backWall.receiveShadow = true;
     this.scene.add(backWall);
 
-    const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(30, 16), wallMat);
+    const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), wallMat);
     leftWall.rotation.y = Math.PI / 2;
     leftWall.position.set(-12, 4.9, 0);
     leftWall.receiveShadow = true;
     this.scene.add(leftWall);
 
-    const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(30, 16), wallMat);
+    const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), wallMat);
     rightWall.rotation.y = -Math.PI / 2;
     rightWall.position.set(12, 4.9, 0);
     rightWall.receiveShadow = true;
     this.scene.add(rightWall);
 
-    // 3. Cozy Corner Floor Lamp
-    const lampGroup = new THREE.Group();
-    lampGroup.position.set(-8.5, -3.1, -8.5);
+    const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), wallMat);
+    frontWall.rotation.y = Math.PI;
+    frontWall.position.set(0, 4.9, 12);
+    frontWall.receiveShadow = true;
+    this.scene.add(frontWall);
 
-    // Base
+    // 3. Fake Window with Burgundy Curtains on Left Wall
+    const windowGroup = new THREE.Group();
+    windowGroup.position.set(-11.9, 4.0, 0);
+
+    // Glowing window pane
+    const paneMesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(4.0, 6.0),
+      new THREE.MeshStandardMaterial({
+        color: 0xbae6fd,
+        emissive: 0x38bdf8,
+        emissiveIntensity: 0.7,
+        roughness: 0.1
+      })
+    );
+    paneMesh.rotation.y = Math.PI / 2;
+    windowGroup.add(paneMesh);
+
+    // Window Frame
+    const frameMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.8 });
+    const topFrame = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 4.2), frameMat);
+    topFrame.position.set(0, 3.0, 0);
+    windowGroup.add(topFrame);
+
+    const bottomFrame = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 4.2), frameMat);
+    bottomFrame.position.set(0, -3.0, 0);
+    windowGroup.add(bottomFrame);
+
+    const leftFrame = new THREE.Mesh(new THREE.BoxGeometry(0.1, 6.0, 0.15), frameMat);
+    leftFrame.position.set(0, 0, -2.0);
+    windowGroup.add(leftFrame);
+
+    const rightFrame = leftFrame.clone();
+    rightFrame.position.z = 2.0;
+    windowGroup.add(rightFrame);
+
+    // Center divider
+    const centerDivider = new THREE.Mesh(new THREE.BoxGeometry(0.1, 6.0, 0.1), frameMat);
+    centerDivider.position.set(0, 0, 0);
+    windowGroup.add(centerDivider);
+
+    // Burgundy Curtains
+    const curtainMat = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.9 }); // burgundy
+    const leftCurtain = new THREE.Mesh(new THREE.BoxGeometry(0.15, 6.5, 0.9), curtainMat);
+    leftCurtain.position.set(0.05, -0.1, -2.2);
+    windowGroup.add(leftCurtain);
+
+    const rightCurtain = leftCurtain.clone();
+    rightCurtain.position.z = 2.2;
+    windowGroup.add(rightCurtain);
+
+    // Curtain Rod
+    const rodMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.04, 0.04, 5.2, 8),
+      new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.8, roughness: 0.2 }) // brass rod
+    );
+    rodMesh.rotation.x = Math.PI / 2;
+    rodMesh.position.set(0.08, 3.2, 0);
+    windowGroup.add(rodMesh);
+
+    this.scene.add(windowGroup);
+
+    // 4. Hanging Chandelier/Lamp on Top of Table
+    const chandelier = new THREE.Group();
+    chandelier.position.set(0, 8.0, 0);
+
+    // Cord
+    const cordMesh = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.02, 0.02, 3.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0x1f2937, roughness: 0.8 })
+    );
+    cordMesh.position.y = -1.75;
+    chandelier.add(cordMesh);
+
+    // Copper Shade
+    const lampShade = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.1, 0.8, 0.5, 16),
+      new THREE.MeshStandardMaterial({ color: 0xb45309, metalness: 0.9, roughness: 0.2 }) // polished copper
+    );
+    lampShade.position.y = -3.5;
+    chandelier.add(lampShade);
+
+    // Bulb (glow)
+    const bulb = new THREE.Mesh(
+      new THREE.SphereGeometry(0.15, 8, 8),
+      new THREE.MeshBasicMaterial({ color: 0xffedd5 })
+    );
+    bulb.position.y = -3.7;
+    chandelier.add(bulb);
+
+    this.scene.add(chandelier);
+
+    // 5. Cozy Corner Floor Lamp
+    const lampGroup = new THREE.Group();
+    lampGroup.position.set(-9.0, -3.1, -9.0);
+
     const baseMesh = new THREE.Mesh(
       new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16),
       new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8, roughness: 0.2 })
@@ -228,7 +324,6 @@ export class ThreeRenderer {
     baseMesh.castShadow = true;
     lampGroup.add(baseMesh);
 
-    // Pole
     const poleMesh = new THREE.Mesh(
       new THREE.CylinderGeometry(0.06, 0.06, 4.5, 8),
       new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8, roughness: 0.2 })
@@ -237,7 +332,6 @@ export class ThreeRenderer {
     poleMesh.castShadow = true;
     lampGroup.add(poleMesh);
 
-    // Warm Shade
     const shadeMesh = new THREE.Mesh(
       new THREE.CylinderGeometry(0.35, 0.5, 0.7, 16),
       new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfef08a, emissiveIntensity: 0.6, roughness: 0.5 })
@@ -246,70 +340,133 @@ export class ThreeRenderer {
     shadeMesh.castShadow = true;
     lampGroup.add(shadeMesh);
 
-    // Light source
     const lampLight = new THREE.PointLight(0xfff7ed, 3.5, 12);
-    lampLight.position.set(-8.5, 1.5, -8.5);
+    lampLight.position.set(-9.0, 1.5, -9.0);
     lampLight.castShadow = true;
     lampLight.shadow.bias = -0.002;
     this.scene.add(lampLight);
 
     this.scene.add(lampGroup);
 
-    // 4. Abstract Voxel Geometric Wall Painting (Back Wall)
-    const paintingGroup = new THREE.Group();
-    paintingGroup.position.set(0, 4.0, -11.9);
+    // 6. Wall Paintings
+    // Painting 1: Abstract Art on Back Wall
+    const painting1 = new THREE.Group();
+    painting1.position.set(0, 4.0, -11.9);
 
-    // Frame
-    const pFrame = new THREE.Mesh(
-      new THREE.BoxGeometry(5.0, 3.0, 0.1),
-      new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 })
-    );
-    paintingGroup.add(pFrame);
+    const pFrame1 = new THREE.Mesh(new THREE.BoxGeometry(5.0, 3.0, 0.1), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 }));
+    painting1.add(pFrame1);
 
-    // Canvas
-    const pCanvas = new THREE.Mesh(
-      new THREE.BoxGeometry(4.7, 2.7, 0.05),
-      new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 })
-    );
-    pCanvas.position.z = 0.03;
-    paintingGroup.add(pCanvas);
+    const pCanvas1 = new THREE.Mesh(new THREE.BoxGeometry(4.7, 2.7, 0.05), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 }));
+    pCanvas1.position.z = 0.03;
+    painting1.add(pCanvas1);
 
-    // Decorative Voxel Shapes inside painting
-    const redBlock = new THREE.Mesh(
-      new THREE.BoxGeometry(1.2, 1.2, 0.04),
-      new THREE.MeshStandardMaterial({ color: 0xef4444, roughness: 0.8 })
-    );
+    const redBlock = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.04), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
     redBlock.position.set(-1.0, 0.4, 0.08);
-    paintingGroup.add(redBlock);
+    painting1.add(redBlock);
 
-    const yellowBlock = new THREE.Mesh(
-      new THREE.BoxGeometry(0.8, 1.8, 0.04),
-      new THREE.MeshStandardMaterial({ color: 0xeab308, roughness: 0.8 })
-    );
+    const yellowBlock = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.04), new THREE.MeshStandardMaterial({ color: 0xeab308 }));
     yellowBlock.position.set(0.6, -0.2, 0.08);
-    paintingGroup.add(yellowBlock);
+    painting1.add(yellowBlock);
 
-    const blueBlock = new THREE.Mesh(
-      new THREE.BoxGeometry(1.5, 0.6, 0.04),
-      new THREE.MeshStandardMaterial({ color: 0x3b82f6, roughness: 0.8 })
-    );
+    const blueBlock = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.6, 0.04), new THREE.MeshStandardMaterial({ color: 0x3b82f6 }));
     blueBlock.position.set(-0.4, -0.6, 0.08);
-    paintingGroup.add(blueBlock);
+    painting1.add(blueBlock);
 
-    this.scene.add(paintingGroup);
+    this.scene.add(painting1);
 
-    // 5. Standing Voxel Bookcase / Shelves (Back Left Corner)
+    // Painting 2: Voxel Landscape on Right Wall
+    const painting2 = new THREE.Group();
+    painting2.position.set(11.9, 4.0, 0);
+    painting2.rotation.y = -Math.PI / 2;
+
+    const pFrame2 = new THREE.Mesh(new THREE.BoxGeometry(4.0, 2.5, 0.1), new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.6 }));
+    painting2.add(pFrame2);
+
+    const pCanvas2 = new THREE.Mesh(new THREE.BoxGeometry(3.7, 2.2, 0.05), new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.9 })); // sky blue canvas
+    pCanvas2.position.z = 0.03;
+    painting2.add(pCanvas2);
+
+    const sun = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.04), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+    sun.position.set(-1.0, 0.4, 0.08);
+    painting2.add(sun);
+
+    const hill1 = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.0, 0.04), new THREE.MeshStandardMaterial({ color: 0x15803d }));
+    hill1.position.set(-0.6, -0.6, 0.08);
+    painting2.add(hill1);
+
+    const hill2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 0.05), new THREE.MeshStandardMaterial({ color: 0x166534 }));
+    hill2.position.set(0.7, -0.5, 0.09);
+    painting2.add(hill2);
+
+    this.scene.add(painting2);
+
+    // Painting 3: Minimalist Figure Portrait on Front Wall
+    const painting3 = new THREE.Group();
+    painting3.position.set(-4.0, 4.0, 11.9);
+    painting3.rotation.y = Math.PI;
+
+    const pFrame3 = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.0, 0.1), new THREE.MeshStandardMaterial({ color: 0x1e1b4b, roughness: 0.8 }));
+    painting3.add(pFrame3);
+
+    const pCanvas3 = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.7, 0.05), new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.9 })); // cream background
+    pCanvas3.position.z = 0.03;
+    painting3.add(pCanvas3);
+
+    const hair = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.04), new THREE.MeshStandardMaterial({ color: 0x111827 }));
+    hair.position.set(0, 0.6, 0.08);
+    painting3.add(hair);
+
+    const face = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.05), new THREE.MeshStandardMaterial({ color: 0xfda4af }));
+    face.position.set(0, 0.4, 0.09);
+    painting3.add(face);
+
+    const coat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.04), new THREE.MeshStandardMaterial({ color: 0xb91c1c }));
+    coat.position.set(0, -0.5, 0.08);
+    painting3.add(coat);
+
+    this.scene.add(painting3);
+
+    // 7. Detailed Wooden Door on Front Wall
+    const doorGroup = new THREE.Group();
+    doorGroup.position.set(4.0, -3.1, 11.9);
+    doorGroup.rotation.y = Math.PI;
+
+    // Door Frame
+    const doorFrame = new THREE.Mesh(
+      new THREE.BoxGeometry(2.2, 5.0, 0.1),
+      new THREE.MeshStandardMaterial({ color: 0x3e2723, roughness: 0.8 }) // dark brown
+    );
+    doorFrame.position.y = 2.5;
+    doorGroup.add(doorFrame);
+
+    // Door Slab
+    const doorSlab = new THREE.Mesh(
+      new THREE.BoxGeometry(2.0, 4.8, 0.06),
+      new THREE.MeshStandardMaterial({ color: 0x5d4037, roughness: 0.7 }) // medium brown
+    );
+    doorSlab.position.set(0, 2.4, 0.03);
+    doorGroup.add(doorSlab);
+
+    // Brass Door Knob
+    const knob = new THREE.Mesh(
+      new THREE.SphereGeometry(0.08, 12, 12),
+      new THREE.MeshStandardMaterial({ color: 0xeab308, metalness: 0.9, roughness: 0.1 })
+    );
+    knob.position.set(0.7, 2.3, 0.12);
+    doorGroup.add(knob);
+
+    this.scene.add(doorGroup);
+
+    // 8. Standing Voxel Bookcase (Back Wall)
     const bookcase = new THREE.Group();
-    bookcase.position.set(-9.0, -3.1, -11.0);
+    bookcase.position.set(-5.0, -3.1, -11.5);
 
     const woodMaterial = new THREE.MeshStandardMaterial({ color: 0x5c4033, roughness: 0.8 });
 
-    // Back Panel
     const backPanel = new THREE.Mesh(new THREE.BoxGeometry(3.0, 6.0, 0.1), woodMaterial);
     backPanel.position.set(0, 3.0, 0);
     bookcase.add(backPanel);
 
-    // Side Panels
     const leftSide = new THREE.Mesh(new THREE.BoxGeometry(0.1, 6.0, 1.0), woodMaterial);
     leftSide.position.set(-1.45, 3.0, 0.45);
     bookcase.add(leftSide);
@@ -318,17 +475,15 @@ export class ThreeRenderer {
     rightSide.position.x = 1.45;
     bookcase.add(rightSide);
 
-    // Shelves (Bottom, Middle 1, Middle 2, Top)
     const shelfGeom = new THREE.BoxGeometry(2.8, 0.1, 0.9);
     for (let h = 0; h <= 4; h++) {
       const shelf = new THREE.Mesh(shelfGeom, woodMaterial);
       shelf.position.set(0, h * 1.5, 0.45);
       bookcase.add(shelf);
 
-      // Add a few colorful voxel books on each shelf!
       if (h < 4) {
         const bookColors = [0xef4444, 0x3b82f6, 0x10b981, 0xeab308, 0x8b5cf6, 0xec4899];
-        const numBooks = 3 + Math.floor(Math.random() * 4);
+        const numBooks = 4 + Math.floor(Math.random() * 3);
         for (let b = 0; b < numBooks; b++) {
           const bookHeight = 0.5 + Math.random() * 0.3;
           const bookWidth = 0.15;
@@ -338,12 +493,10 @@ export class ThreeRenderer {
             roughness: 0.7
           });
           const book = new THREE.Mesh(new THREE.BoxGeometry(bookWidth, bookHeight, bookDepth), bookMat);
-          // Position book on shelf
-          const bx = -1.0 + b * 0.4 + (Math.random() * 0.1 - 0.05);
+          const bx = -1.0 + b * 0.45 + (Math.random() * 0.08 - 0.04);
           const by = h * 1.5 + 0.05 + bookHeight / 2;
           const bz = 0.3 + (Math.random() * 0.2);
           book.position.set(bx, by, bz);
-          // Slight tilt for natural look
           if (Math.random() > 0.7) {
             book.rotation.z = (Math.random() - 0.5) * 0.25;
           }
@@ -354,49 +507,40 @@ export class ThreeRenderer {
 
     this.scene.add(bookcase);
 
-    // 6. Indoor Plant on Stand (Back Right Corner)
+    // 9. Indoor Plant on Stand (Back Right Corner)
     const plantGroup = new THREE.Group();
-    plantGroup.position.set(8.5, -3.1, -9.0);
+    plantGroup.position.set(9.0, -3.1, -9.0);
 
-    // Stand
     const standMesh = new THREE.Mesh(
       new THREE.BoxGeometry(1.2, 1.2, 1.2),
-      new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.8 }) // dark concrete stand
+      new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.8 })
     );
     standMesh.position.y = 0.6;
     standMesh.castShadow = true;
     standMesh.receiveShadow = true;
     plantGroup.add(standMesh);
 
-    // Pot
     const potMesh = new THREE.Mesh(
       new THREE.CylinderGeometry(0.5, 0.4, 0.8, 12),
-      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 }) // terracotta
+      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 })
     );
     potMesh.position.y = 1.6;
     potMesh.castShadow = true;
     plantGroup.add(potMesh);
 
-    // Dirt
     const dirtMesh = new THREE.Mesh(
       new THREE.CylinderGeometry(0.46, 0.46, 0.1, 12),
-      new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 }) // dark brown dirt
+      new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 })
     );
     dirtMesh.position.y = 1.96;
     plantGroup.add(dirtMesh);
 
-    // Voxel Blocky Leaves (instanced-like box meshes)
-    const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 }); // forest green
-    
-    // Central stalks and extending leaves
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.8 });
     const plantCenterY = 2.0;
-    
-    // Core stalk
     const stalk = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.5, 0.12), leafMat);
     stalk.position.set(0, plantCenterY + 0.75, 0);
     plantGroup.add(stalk);
 
-    // Voxel leaf boxes branching out
     const leavesData = [
       { size: [0.6, 0.3, 0.6], pos: [0.2, 2.2, 0.2], rot: [0.2, 0.5, 0.2] },
       { size: [0.7, 0.2, 0.7], pos: [-0.3, 2.4, -0.1], rot: [-0.3, -0.4, -0.1] },
