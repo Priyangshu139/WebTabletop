@@ -35,6 +35,10 @@ export class ThreeRenderer {
   private currentState: EngineState | null = null;
   private activePlayerId: string = 'P1';
 
+  // Cursor Tracking for active avatar pointing
+  private mouseX: number = 0;
+  private mouseY: number = 0;
+
   constructor(container: HTMLDivElement, activePlayerId: string) {
     this.container = container;
     this.activePlayerId = activePlayerId;
@@ -84,6 +88,12 @@ export class ThreeRenderer {
 
     // Window Resize Handler
     window.addEventListener('resize', this.onResize);
+
+    // Mouse Move listener to track cursor for avatar pointing
+    window.addEventListener('mousemove', (e) => {
+      this.mouseX = (e.clientX / window.innerWidth) * 2 - 1;
+      this.mouseY = -(e.clientY / window.innerHeight) * 2 + 1;
+    });
   }
 
   private onResize = () => {
@@ -897,19 +907,19 @@ export class ThreeRenderer {
         // 5. Arms
         const armMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
         
-        // Left Arm (holding cards mesh)
+        // Left Arm (holding cards mesh, positioned at +0.4)
         const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), armMat);
         leftArm.name = 'left-arm-mesh';
-        leftArm.position.set(-0.4, 0.45, 0.1);
+        leftArm.position.set(0.4, 0.45, 0.1);
         leftArm.rotation.x = -0.6; // bent forward to present held cards
-        leftArm.rotation.y = 0.3;  // angled slightly inwards
+        leftArm.rotation.y = -0.3; // angled slightly inwards (negative since on right side +x)
         group.add(leftArm);
 
         // Held Cards mesh in left hand
         const heldCards = new THREE.Group();
         heldCards.name = 'held-cards';
         heldCards.position.set(0, -0.22, 0.08);
-        heldCards.rotation.set(-0.2, 0.3, 0);
+        heldCards.rotation.set(-0.2, -0.3, 0); // reverse Z rotation for left side
 
         const cardWidth = 0.14;
         const cardHeight = 0.22;
@@ -934,10 +944,10 @@ export class ThreeRenderer {
         const cardCountVal = state.players[pid]?.hand?.length || 0;
         heldCards.visible = cardCountVal > 0;
 
-        // 6. Jointed Right Arm (Upper Arm, Lower Arm, and Sphere Palm)
+        // 6. Jointed Right Arm (Upper Arm, Lower Arm, and Sphere Palm, positioned at -0.4)
         const rightArmGroup = new THREE.Group();
         rightArmGroup.name = 'right-arm-group';
-        rightArmGroup.position.set(0.4, 0.6, 0.1); // pivot at shoulder
+        rightArmGroup.position.set(-0.4, 0.6, 0.1); // pivot at shoulder
         group.add(rightArmGroup);
 
         const upperArm = new THREE.Group();
@@ -1382,13 +1392,26 @@ export class ThreeRenderer {
         const index = Object.keys(this.currentState!.players).indexOf(pid);
         avatarGroup.position.y = Math.sin(timer * 2 + index) * 0.02;
 
-        // Animate jointed right arm (breathing/waving)
+        // Animate jointed right arm (pointing to cursor for self, breathing/waving for others)
         const upper = avatarGroup.getObjectByName('right-upper-arm') as THREE.Group;
         const lower = avatarGroup.getObjectByName('right-lower-arm') as THREE.Group;
         if (upper && lower) {
-          upper.rotation.x = -0.4 + Math.sin(timer * 4 + index) * 0.15;
-          upper.rotation.z = 0.15 + Math.cos(timer * 3 + index) * 0.08;
-          lower.rotation.x = -0.3 + Math.sin(timer * 6 + index) * 0.2;
+          if (pid === this.activePlayerId && !this.isSpectator) {
+            // Player's own avatar points towards the cursor!
+            const targetXRot = -0.4 - this.mouseY * 0.7; // vertical tilt
+            const targetYRot = -this.mouseX * 0.8;       // horizontal swing
+            
+            upper.rotation.x = THREE.MathUtils.lerp(upper.rotation.x, targetXRot, 0.15);
+            upper.rotation.y = THREE.MathUtils.lerp(upper.rotation.y, targetYRot, 0.15);
+            upper.rotation.z = THREE.MathUtils.lerp(upper.rotation.z, 0, 0.15); // reset side angle
+            lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(this.mouseX) * 0.3, 0.15);
+          } else {
+            // Other players' right hands wave/breathe procedurally
+            upper.rotation.x = -0.4 + Math.sin(timer * 4 + index) * 0.15;
+            upper.rotation.y = 0; // reset horizontal turn
+            upper.rotation.z = -0.15 - Math.cos(timer * 3 + index) * 0.08; // slight outward angle on right side (-x)
+            lower.rotation.x = -0.3 + Math.sin(timer * 6 + index) * 0.2;
+          }
         }
       });
 
