@@ -1632,7 +1632,7 @@ function updateUI(gameState: EngineState) {
 
   // 1. Notify 3D WebGL renderer to update meshes dynamically
   if (threeRenderer) {
-    threeRenderer.updateState(gameState, isSpectator, spectatingPlayerId);
+    threeRenderer.updateState(gameState, isSpectator, isSpectator ? spectatingPlayerId : activeSeatId);
   }
 
   // Update Uno HUD overlay elements dynamically
