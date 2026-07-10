@@ -1020,6 +1020,9 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
             <button class="action-btn" id="btn-play-card-hud" style="display: none; background: #16a34a; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; align-items: center; gap: 6px; transition: all 0.2s;">
               🟢 PLAY CARD
             </button>
+            <button class="action-btn" id="btn-zoom-hud" style="background: #8b5cf6; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
+              🔍 ZOOM
+            </button>
             <button class="action-btn" id="btn-draw-card" disabled style="background: #2563eb; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; display: flex; align-items: center; gap: 6px; transition: all 0.2s;">
               🔵 DRAW CARD
             </button>
@@ -1072,6 +1075,13 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
     // Custom HUD Buttons binding
     document.getElementById('btn-play-card-hud')?.addEventListener('click', () => {
       triggerFloatingAlert('Click a card in your hand below to play it!');
+    });
+
+    document.querySelectorAll('#btn-zoom-hud').forEach(btn => {
+      btn.addEventListener('click', () => {
+        threeRenderer?.toggleZoom();
+        soundManager.playCardFlip();
+      });
     });
 
     document.getElementById('btn-call-uno')?.addEventListener('click', () => {
@@ -1167,6 +1177,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
             <button class="action-btn" id="btn-move" disabled style="${activeGame === 'uno-go' ? 'display: none;' : ''}">Move Piece</button>
             <button class="action-btn" id="btn-resolve" disabled style="${activeGame === 'uno-go' ? 'display: none;' : ''}">Resolve Space</button>
             <button class="action-btn" id="btn-buy-property" disabled style="background-color: #10b981; ${activeGame !== 'monopoly-go' ? 'display: none;' : ''}">Buy Property</button>
+            <button class="action-btn" id="btn-zoom-hud" style="background-color: #8b5cf6; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">Zoom</button>
             <button class="action-btn" id="btn-draw-card" disabled style="background-color: #f59e0b; ${activeGame !== 'uno-go' ? 'display: none;' : ''}">Draw Card</button>
             <button class="action-btn" id="btn-end" disabled>End Turn</button>
           </div>

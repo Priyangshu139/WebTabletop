@@ -774,12 +774,47 @@ export class ThreeRenderer {
   }
 
   private updateCameraPosition() {
-    const x = this.radius * Math.sin(this.phi) * Math.sin(this.theta);
-    const y = this.radius * Math.cos(this.phi);
-    const z = this.radius * Math.sin(this.phi) * Math.cos(this.theta);
+    if (!this.currentState) {
+      const x = this.radius * Math.sin(this.phi) * Math.sin(this.theta);
+      const y = this.radius * Math.cos(this.phi);
+      const z = this.radius * Math.sin(this.phi) * Math.cos(this.theta);
+      this.camera.position.set(x, y, z);
+      this.camera.lookAt(this.targetLookAt);
+      return;
+    }
 
-    this.camera.position.set(x, y, z);
-    this.camera.lookAt(this.targetLookAt);
+    const myAvatar = this.avatarsMap.get(this.activePlayerId);
+    if (myAvatar) {
+      // Camera is fixed exactly at avatar's head eyes level
+      // Tracks the breathing position.y of the avatar group!
+      const headY = myAvatar.position.y + 0.98;
+      this.camera.position.set(myAvatar.position.x, headY, myAvatar.position.z);
+
+      // Looking direction vector from head outwards
+      const lookDir = new THREE.Vector3(
+        Math.sin(this.phi) * Math.sin(this.theta),
+        Math.cos(this.phi),
+        Math.sin(this.phi) * Math.cos(this.theta)
+      );
+
+      // Offset camera slightly forward along lookDir to clear the head/face mesh clipping
+      this.camera.position.addScaledVector(lookDir, 0.22);
+
+      const lookTarget = this.camera.position.clone().add(lookDir);
+      this.camera.lookAt(lookTarget);
+    } else {
+      const x = this.radius * Math.sin(this.phi) * Math.sin(this.theta);
+      const y = this.radius * Math.cos(this.phi);
+      const z = this.radius * Math.sin(this.phi) * Math.cos(this.theta);
+      this.camera.position.set(x, y, z);
+      this.camera.lookAt(this.targetLookAt);
+    }
+  }
+
+  private targetFov: number = 65;
+
+  public toggleZoom() {
+    this.targetFov = this.targetFov === 65 ? 35 : 65;
   }
 
   private isSpectator: boolean = false;
@@ -846,37 +881,42 @@ export class ThreeRenderer {
         torsoMesh.receiveShadow = true;
         group.add(torsoMesh);
 
-        // 2. Head
+        // 2. Head Group (contains head mesh, hair, and face emoji plane so they rotate together)
+        const headGroup = new THREE.Group();
+        headGroup.name = 'avatar-head-group';
+        headGroup.position.set(0, 0.95, 0); // pivot centered at neck
+        group.add(headGroup);
+
         const headGeom = new THREE.BoxGeometry(0.44, 0.44, 0.44);
         const headMat = new THREE.MeshStandardMaterial({ color: skinToneColor, roughness: 0.6 });
         const headMesh = new THREE.Mesh(headGeom, headMat);
-        headMesh.position.set(0, 0.95, 0);
+        headMesh.position.set(0, 0, 0); // local center
         headMesh.castShadow = true;
-        group.add(headMesh);
+        headGroup.add(headMesh);
 
-        // 3. Hair (Blocky haircut)
+        // 3. Hair (Blocky haircut, added to headGroup)
         const hairGroup = new THREE.Group();
         const hairMat = new THREE.MeshStandardMaterial({ color: hairColor, roughness: 0.8 });
         
         // Top hair cap
         const topHair = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.12, 0.48), hairMat);
-        topHair.position.set(0, 1.15, 0);
+        topHair.position.set(0, 0.2, 0);
         hairGroup.add(topHair);
 
         // Back hair
         const backHair = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.35, 0.12), hairMat);
-        backHair.position.set(0, 0.98, -0.2);
+        backHair.position.set(0, 0.03, -0.2);
         hairGroup.add(backHair);
 
         // Sides hair
         const leftHair = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.3, 0.46), hairMat);
-        leftHair.position.set(-0.2, 1.0, 0.01);
+        leftHair.position.set(-0.2, 0.05, 0.01);
         const rightHair = leftHair.clone();
         rightHair.position.x = 0.2;
         hairGroup.add(leftHair);
         hairGroup.add(rightHair);
         
-        group.add(hairGroup);
+        headGroup.add(hairGroup);
 
         // 4. Face text plane displaying player emoji face static on the front of the face!
         const canvas = document.createElement('canvas');
@@ -900,9 +940,9 @@ export class ThreeRenderer {
           new THREE.PlaneGeometry(0.44, 0.44),
           facePlaneMat
         );
-        // Positioned at z = 0.252 to sit cleanly in front of side hair (z = 0.24)
-        facePlane.position.set(0, 0.95, 0.252);
-        group.add(facePlane);
+        // Positioned at z = 0.252 relative to headGroup
+        facePlane.position.set(0, 0, 0.252);
+        headGroup.add(facePlane);
 
         // 5. Arms
         const armMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
@@ -1383,14 +1423,45 @@ export class ThreeRenderer {
   private animate = () => {
     this.animationFrameId = requestAnimationFrame(this.animate);
 
+    // Dynamic S-curve zoom transition
+    const fovDiff = this.targetFov - this.camera.fov;
+    if (Math.abs(fovDiff) > 0.01) {
+      this.camera.fov += fovDiff * 0.12; // Eased S-curve
+      this.camera.updateProjectionMatrix();
+    }
+
     // Simple procedural spins or micro-rotations to bring scene to life
     if (this.currentState) {
       const timer = Date.now() * 0.0005;
+      
+      // Update camera position to track breathing head
+      this.updateCameraPosition();
       
       // Let seated avatars bounce/breathe gently, and animate their right hand moving
       this.avatarsMap.forEach((avatarGroup, pid) => {
         const index = Object.keys(this.currentState!.players).indexOf(pid);
         avatarGroup.position.y = Math.sin(timer * 2 + index) * 0.02;
+
+        // Turn local player's head where camera looks/moves
+        const headGroup = avatarGroup.getObjectByName('avatar-head-group') as THREE.Group;
+        if (headGroup) {
+          if (pid === this.activePlayerId && !this.isSpectator) {
+            const playerIds = Object.keys(this.currentState!.players);
+            const numPlayers = playerIds.length;
+            const idx = playerIds.indexOf(pid);
+            const angle = (idx / numPlayers) * Math.PI * 2;
+
+            // Align head rotation.y with theta, and rotation.x with phi
+            const targetY = this.theta - angle + Math.PI;
+            const targetX = this.phi - Math.PI / 2;
+
+            headGroup.rotation.y = THREE.MathUtils.lerp(headGroup.rotation.y, targetY, 0.15);
+            headGroup.rotation.x = THREE.MathUtils.lerp(headGroup.rotation.x, targetX, 0.15);
+          } else {
+            // Reset other players' heads to default lookAt center
+            headGroup.rotation.set(0, 0, 0);
+          }
+        }
 
         // Animate jointed right arm (pointing to cursor for self, breathing/waving for others)
         const upper = avatarGroup.getObjectByName('right-upper-arm') as THREE.Group;
