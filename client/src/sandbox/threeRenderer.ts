@@ -191,10 +191,13 @@ export class ThreeRenderer {
     floorMesh.receiveShadow = true;
     this.scene.add(floorMesh);
 
-    // 2. Room Walls in 360 degrees (back, left, right, front) forming a closed 24x24x16 room
+    // 2. Room Walls in 360 degrees with light plaster texture bump mapping
+    const wallTex = this.createWallTexture();
     const wallMat = new THREE.MeshStandardMaterial({
-      color: 0x1e293b, // Dark slate blue wall color
-      roughness: 0.9,
+      color: 0xf1f5f9, // Lighter, clean off-white wall
+      bumpMap: wallTex,
+      bumpScale: 0.015, // Subtle stucco texture depth
+      roughness: 0.95,
       metalness: 0.0
     });
 
@@ -221,7 +224,7 @@ export class ThreeRenderer {
     frontWall.receiveShadow = true;
     this.scene.add(frontWall);
 
-    // 3. Fake Window with Burgundy Curtains on Left Wall
+    // 3. Fake Window with CLOSED Burgundy Curtains on Left Wall
     const windowGroup = new THREE.Group();
     windowGroup.position.set(-11.9, 4.0, 0);
 
@@ -261,14 +264,14 @@ export class ThreeRenderer {
     centerDivider.position.set(0, 0, 0);
     windowGroup.add(centerDivider);
 
-    // Burgundy Curtains
+    // Closed Burgundy Curtains (spanning 2.1 units each, meeting at the center)
     const curtainMat = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.9 }); // burgundy
-    const leftCurtain = new THREE.Mesh(new THREE.BoxGeometry(0.15, 6.5, 0.9), curtainMat);
-    leftCurtain.position.set(0.05, -0.1, -2.2);
+    const leftCurtain = new THREE.Mesh(new THREE.BoxGeometry(0.15, 6.5, 2.1), curtainMat);
+    leftCurtain.position.set(0.05, -0.1, -1.05);
     windowGroup.add(leftCurtain);
 
-    const rightCurtain = leftCurtain.clone();
-    rightCurtain.position.z = 2.2;
+    const rightCurtain = new THREE.Mesh(new THREE.BoxGeometry(0.15, 6.5, 2.1), curtainMat);
+    rightCurtain.position.set(0.05, -0.1, 1.05);
     windowGroup.add(rightCurtain);
 
     // Curtain Rod
@@ -348,7 +351,7 @@ export class ThreeRenderer {
 
     this.scene.add(lampGroup);
 
-    // 6. Wall Paintings
+    // 6. Wall Paintings (Canvas & art details use MeshBasicMaterial so they are self-illuminated)
     // Painting 1: Abstract Art on Back Wall
     const painting1 = new THREE.Group();
     painting1.position.set(0, 4.0, -11.9);
@@ -356,19 +359,19 @@ export class ThreeRenderer {
     const pFrame1 = new THREE.Mesh(new THREE.BoxGeometry(5.0, 3.0, 0.1), new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 }));
     painting1.add(pFrame1);
 
-    const pCanvas1 = new THREE.Mesh(new THREE.BoxGeometry(4.7, 2.7, 0.05), new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.9 }));
+    const pCanvas1 = new THREE.Mesh(new THREE.BoxGeometry(4.7, 2.7, 0.05), new THREE.MeshBasicMaterial({ color: 0xf8fafc }));
     pCanvas1.position.z = 0.03;
     painting1.add(pCanvas1);
 
-    const redBlock = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.04), new THREE.MeshStandardMaterial({ color: 0xef4444 }));
+    const redBlock = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.04), new THREE.MeshBasicMaterial({ color: 0xef4444 }));
     redBlock.position.set(-1.0, 0.4, 0.08);
     painting1.add(redBlock);
 
-    const yellowBlock = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.04), new THREE.MeshStandardMaterial({ color: 0xeab308 }));
+    const yellowBlock = new THREE.Mesh(new THREE.BoxGeometry(0.8, 1.8, 0.04), new THREE.MeshBasicMaterial({ color: 0xeab308 }));
     yellowBlock.position.set(0.6, -0.2, 0.08);
     painting1.add(yellowBlock);
 
-    const blueBlock = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.6, 0.04), new THREE.MeshStandardMaterial({ color: 0x3b82f6 }));
+    const blueBlock = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.6, 0.04), new THREE.MeshBasicMaterial({ color: 0x3b82f6 }));
     blueBlock.position.set(-0.4, -0.6, 0.08);
     painting1.add(blueBlock);
 
@@ -382,19 +385,19 @@ export class ThreeRenderer {
     const pFrame2 = new THREE.Mesh(new THREE.BoxGeometry(4.0, 2.5, 0.1), new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.6 }));
     painting2.add(pFrame2);
 
-    const pCanvas2 = new THREE.Mesh(new THREE.BoxGeometry(3.7, 2.2, 0.05), new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.9 })); // sky blue canvas
+    const pCanvas2 = new THREE.Mesh(new THREE.BoxGeometry(3.7, 2.2, 0.05), new THREE.MeshBasicMaterial({ color: 0x38bdf8 }));
     pCanvas2.position.z = 0.03;
     painting2.add(pCanvas2);
 
-    const sun = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.04), new THREE.MeshStandardMaterial({ color: 0xfacc15 }));
+    const sun = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.04), new THREE.MeshBasicMaterial({ color: 0xfacc15 }));
     sun.position.set(-1.0, 0.4, 0.08);
     painting2.add(sun);
 
-    const hill1 = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.0, 0.04), new THREE.MeshStandardMaterial({ color: 0x15803d }));
+    const hill1 = new THREE.Mesh(new THREE.BoxGeometry(2.0, 1.0, 0.04), new THREE.MeshBasicMaterial({ color: 0x15803d }));
     hill1.position.set(-0.6, -0.6, 0.08);
     painting2.add(hill1);
 
-    const hill2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 0.05), new THREE.MeshStandardMaterial({ color: 0x166534 }));
+    const hill2 = new THREE.Mesh(new THREE.BoxGeometry(1.8, 1.2, 0.05), new THREE.MeshBasicMaterial({ color: 0x166534 }));
     hill2.position.set(0.7, -0.5, 0.09);
     painting2.add(hill2);
 
@@ -408,19 +411,19 @@ export class ThreeRenderer {
     const pFrame3 = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.0, 0.1), new THREE.MeshStandardMaterial({ color: 0x1e1b4b, roughness: 0.8 }));
     painting3.add(pFrame3);
 
-    const pCanvas3 = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.7, 0.05), new THREE.MeshStandardMaterial({ color: 0xffedd5, roughness: 0.9 })); // cream background
+    const pCanvas3 = new THREE.Mesh(new THREE.BoxGeometry(1.9, 2.7, 0.05), new THREE.MeshBasicMaterial({ color: 0xffedd5 }));
     pCanvas3.position.z = 0.03;
     painting3.add(pCanvas3);
 
-    const hair = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.04), new THREE.MeshStandardMaterial({ color: 0x111827 }));
+    const hair = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.8, 0.04), new THREE.MeshBasicMaterial({ color: 0x111827 }));
     hair.position.set(0, 0.6, 0.08);
     painting3.add(hair);
 
-    const face = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.05), new THREE.MeshStandardMaterial({ color: 0xfda4af }));
+    const face = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.6, 0.05), new THREE.MeshBasicMaterial({ color: 0xfda4af }));
     face.position.set(0, 0.4, 0.09);
     painting3.add(face);
 
-    const coat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.04), new THREE.MeshStandardMaterial({ color: 0xb91c1c }));
+    const coat = new THREE.Mesh(new THREE.BoxGeometry(1.2, 1.2, 0.04), new THREE.MeshBasicMaterial({ color: 0xb91c1c }));
     coat.position.set(0, -0.5, 0.08);
     painting3.add(coat);
 
@@ -559,6 +562,33 @@ export class ThreeRenderer {
     });
 
     this.scene.add(plantGroup);
+  }
+
+  private createWallTexture(): THREE.Texture {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, 128, 128);
+      
+      // Paint subtle fine stucco noise pattern
+      const imgData = ctx.getImageData(0, 0, 128, 128);
+      const data = imgData.data;
+      for (let i = 0; i < data.length; i += 4) {
+        const val = 240 + Math.floor(Math.random() * 15);
+        data[i] = val;     // R
+        data[i+1] = val;   // G
+        data[i+2] = val;   // B
+      }
+      ctx.putImageData(imgData, 0, 0);
+    }
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    texture.repeat.set(4, 3);
+    return texture;
   }
 
   private setupCameraControls() {
