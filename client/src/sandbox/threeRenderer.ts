@@ -38,6 +38,7 @@ export class ThreeRenderer {
   // Cursor Tracking for active avatar pointing
   private mouseX: number = 0;
   private mouseY: number = 0;
+  private hasInitializedAngles: boolean = false;
 
   // Remote player poses received over WebRTC
   private remotePoses: Map<string, { theta: number; phi: number; mouseX: number; mouseY: number }> = new Map();
@@ -731,7 +732,7 @@ export class ThreeRenderer {
       const dy = e.clientY - this.previousMouseY;
 
       this.theta -= dx * 0.007; // adjust rotation speed
-      this.phi = Math.max(0.2, Math.min(Math.PI / 2.1, this.phi - dy * 0.005)); // clamp tilt angles to stay above table
+      this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi - dy * 0.005)); // clamp tilt angles to stay above table
 
       this.previousMouseX = e.clientX;
       this.previousMouseY = e.clientY;
@@ -757,7 +758,7 @@ export class ThreeRenderer {
       const dy = e.touches[0].clientY - this.previousMouseY;
 
       this.theta -= dx * 0.007;
-      this.phi = Math.max(0.2, Math.min(Math.PI / 2.1, this.phi - dy * 0.005));
+      this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi - dy * 0.005));
 
       this.previousMouseX = e.touches[0].clientX;
       this.previousMouseY = e.touches[0].clientY;
@@ -830,9 +831,24 @@ export class ThreeRenderer {
   public updateState(state: EngineState, isSpectator = false, spectatingPlayerId = 'P1') {
     this.currentState = state;
     this.isSpectator = isSpectator;
+    this.activePlayerId = spectatingPlayerId; // Ensure activePlayerId matches the POV
 
     // Camera perspective focus matches the spectated player's seat position
     const targetPId = isSpectator ? spectatingPlayerId : this.activePlayerId;
+
+    // Initialize starting view direction to face the center of the table
+    if (!this.hasInitializedAngles && state.players[targetPId]) {
+      const playerIds = Object.keys(state.players);
+      const numPlayers = playerIds.length;
+      const idx = playerIds.indexOf(targetPId);
+      if (idx !== -1) {
+        const angle = (idx / numPlayers) * Math.PI * 2;
+        this.theta = angle + Math.PI; // Face opposite to seat, looking towards (0,0,0)
+        this.phi = Math.PI / 2.15;    // Looking slightly downwards towards table center
+        this.hasInitializedAngles = true;
+        this.updateCameraPosition();
+      }
+    }
 
     // 1. Synchronize seated Avatars
     this.syncSeatedAvatars(state);
@@ -1490,25 +1506,25 @@ export class ThreeRenderer {
         const lower = avatarGroup.getObjectByName('right-lower-arm') as THREE.Group;
         if (upper && lower) {
           if (pid === this.activePlayerId && !this.isSpectator) {
-            // Player's own avatar points towards the cursor!
-            const targetXRot = -0.4 - this.mouseY * 0.7; // vertical tilt
-            const targetYRot = -this.mouseX * 0.8;       // horizontal swing
+            // Player's own avatar points towards the cursor! (increased multipliers for extra responsiveness)
+            const targetXRot = -0.4 - this.mouseY * 1.5; // vertical tilt
+            const targetYRot = -this.mouseX * 1.6;       // horizontal swing
             
             upper.rotation.x = THREE.MathUtils.lerp(upper.rotation.x, targetXRot, 0.15);
             upper.rotation.y = THREE.MathUtils.lerp(upper.rotation.y, targetYRot, 0.15);
             upper.rotation.z = THREE.MathUtils.lerp(upper.rotation.z, 0, 0.15); // reset side angle
-            lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(this.mouseX) * 0.3, 0.15);
+            lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(this.mouseX) * 0.8, 0.15);
           } else {
             // Other players: use remote pose if available, else procedural breathing
             const remotePose = this.remotePoses.get(pid);
             if (remotePose) {
-              const rTargetXRot = -0.4 - remotePose.mouseY * 0.7;
-              const rTargetYRot = -remotePose.mouseX * 0.8;
+              const rTargetXRot = -0.4 - remotePose.mouseY * 1.5;
+              const rTargetYRot = -remotePose.mouseX * 1.6;
 
               upper.rotation.x = THREE.MathUtils.lerp(upper.rotation.x, rTargetXRot, 0.12);
               upper.rotation.y = THREE.MathUtils.lerp(upper.rotation.y, rTargetYRot, 0.12);
               upper.rotation.z = THREE.MathUtils.lerp(upper.rotation.z, 0, 0.12);
-              lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(remotePose.mouseX) * 0.3, 0.12);
+              lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(remotePose.mouseX) * 0.8, 0.12);
             } else {
               upper.rotation.x = -0.4 + Math.sin(timer * 4 + index) * 0.15;
               upper.rotation.y = 0;
