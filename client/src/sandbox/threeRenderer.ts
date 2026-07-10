@@ -868,7 +868,7 @@ export class ThreeRenderer {
         
         group.add(hairGroup);
 
-        // 4. Face text sprite displaying player emoji face!
+        // 4. Face text plane displaying player emoji face static on the front of the face!
         const canvas = document.createElement('canvas');
         canvas.width = 128;
         canvas.height = 128;
@@ -880,11 +880,17 @@ export class ThreeRenderer {
           ctx.fillText(state.players[pid].emojiFace || '🦊', 64, 64);
         }
         const faceTex = new THREE.CanvasTexture(canvas);
-        const spriteMat = new THREE.SpriteMaterial({ map: faceTex });
-        const faceSprite = new THREE.Sprite(spriteMat);
-        faceSprite.position.set(0, 0.95, 0.23); // positioned right on front face of voxel head
-        faceSprite.scale.set(0.44, 0.44, 0.44);
-        group.add(faceSprite);
+        const facePlaneMat = new THREE.MeshBasicMaterial({
+          map: faceTex,
+          transparent: true,
+          depthWrite: false // avoid z-fighting
+        });
+        const facePlane = new THREE.Mesh(
+          new THREE.PlaneGeometry(0.44, 0.44),
+          facePlaneMat
+        );
+        facePlane.position.set(0, 0.95, 0.23); // positioned right on the front face of voxel head
+        group.add(facePlane);
 
         // 5. Arms
         const armMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
