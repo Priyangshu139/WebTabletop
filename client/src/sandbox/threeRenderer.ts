@@ -896,17 +896,81 @@ export class ThreeRenderer {
 
         // 5. Arms
         const armMat = new THREE.MeshStandardMaterial({ color, roughness: 0.7 });
-        const armGeom = new THREE.BoxGeometry(0.14, 0.4, 0.14);
         
-        const leftArm = new THREE.Mesh(armGeom, armMat);
+        // Left Arm (holding cards mesh)
+        const leftArm = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.4, 0.14), armMat);
+        leftArm.name = 'left-arm-mesh';
         leftArm.position.set(-0.4, 0.45, 0.1);
-        leftArm.rotation.x = -0.4;
-        
-        const rightArm = new THREE.Mesh(armGeom, armMat);
-        rightArm.position.set(0.4, 0.45, 0.1);
-        rightArm.rotation.x = -0.4;
+        leftArm.rotation.x = -0.6; // bent forward to present held cards
+        leftArm.rotation.y = 0.3;  // angled slightly inwards
         group.add(leftArm);
-        group.add(rightArm);
+
+        // Held Cards mesh in left hand
+        const heldCards = new THREE.Group();
+        heldCards.name = 'held-cards';
+        heldCards.position.set(0, -0.22, 0.08);
+        heldCards.rotation.set(-0.2, 0.3, 0);
+
+        const cardWidth = 0.14;
+        const cardHeight = 0.22;
+        const cardColors = [0xef4444, 0x10b981, 0x3b82f6]; // Red, Green, Blue
+        cardColors.forEach((colorHex, cidx) => {
+          const cardMesh = new THREE.Mesh(
+            new THREE.PlaneGeometry(cardWidth, cardHeight),
+            new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide })
+          );
+          const fanAngle = (cidx - 1) * 0.25;
+          cardMesh.rotation.z = fanAngle;
+          cardMesh.position.set(
+            (cidx - 1) * 0.04,
+            0.02 * Math.cos(fanAngle),
+            cidx * 0.005
+          );
+          heldCards.add(cardMesh);
+        });
+        leftArm.add(heldCards);
+
+        // Make held cards visible only if the player actually has cards in hand
+        const cardCountVal = state.players[pid]?.hand?.length || 0;
+        heldCards.visible = cardCountVal > 0;
+
+        // 6. Jointed Right Arm (Upper Arm, Lower Arm, and Sphere Palm)
+        const rightArmGroup = new THREE.Group();
+        rightArmGroup.name = 'right-arm-group';
+        rightArmGroup.position.set(0.4, 0.6, 0.1); // pivot at shoulder
+        group.add(rightArmGroup);
+
+        const upperArm = new THREE.Group();
+        upperArm.name = 'right-upper-arm';
+        const upperMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, 0.22, 0.12),
+          armMat
+        );
+        upperMesh.position.y = -0.11;
+        upperMesh.castShadow = true;
+        upperArm.add(upperMesh);
+        rightArmGroup.add(upperArm);
+
+        const lowerArm = new THREE.Group();
+        lowerArm.name = 'right-lower-arm';
+        lowerArm.position.set(0, -0.22, 0); // pivot at elbow
+        const lowerMesh = new THREE.Mesh(
+          new THREE.BoxGeometry(0.12, 0.22, 0.12),
+          armMat
+        );
+        lowerMesh.position.y = -0.11;
+        lowerMesh.castShadow = true;
+        lowerArm.add(lowerMesh);
+        upperArm.add(lowerArm);
+
+        const palm = new THREE.Mesh(
+          new THREE.SphereGeometry(0.08, 8, 8),
+          new THREE.MeshStandardMaterial({ color: skinToneColor, roughness: 0.6 })
+        );
+        palm.name = 'right-palm';
+        palm.position.set(0, -0.22, 0); // end of lower arm
+        palm.castShadow = true;
+        lowerArm.add(palm);
 
         group.position.set(x, 0, z);
         group.lookAt(0, 0, 0);
@@ -960,6 +1024,16 @@ export class ThreeRenderer {
         // Update avatar position if count changed
         group.position.set(x, 0, z);
         group.lookAt(0, 0, 0);
+
+        // Update left hand held cards visibility
+        const cardCountVal = state.players[pid]?.hand?.length || 0;
+        const leftArm = group.getObjectByName('left-arm-mesh') as THREE.Mesh;
+        if (leftArm) {
+          const heldCards = leftArm.getObjectByName('held-cards');
+          if (heldCards) {
+            heldCards.visible = cardCountVal > 0;
+          }
+        }
 
         // Update card count label
         const cardCount = state.players[pid]?.hand?.length;
@@ -1203,6 +1277,33 @@ export class ThreeRenderer {
       discardMesh.position.set(0.7, 0.01, 0);
       this.scene.add(discardMesh);
       this.cardsMap.push(discardMesh);
+
+      // Floating card count label above the discard pile
+      const discardCount = state.moduleState.unoDiscardPile?.length || 0;
+      if (discardCount > 0) {
+        const labelCanvas = document.createElement('canvas');
+        labelCanvas.width = 128;
+        labelCanvas.height = 64;
+        const lctx = labelCanvas.getContext('2d');
+        if (lctx) {
+          lctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+          lctx.beginPath();
+          lctx.roundRect(8, 4, 112, 56, 12);
+          lctx.fill();
+          lctx.font = 'bold 26px sans-serif';
+          lctx.textAlign = 'center';
+          lctx.textBaseline = 'middle';
+          lctx.fillStyle = '#f59e0b'; // Amber yellow
+          lctx.fillText(`${discardCount} 🎴`, 64, 30);
+        }
+        const labelTex = new THREE.CanvasTexture(labelCanvas);
+        const labelSpriteMat = new THREE.SpriteMaterial({ map: labelTex });
+        const labelSprite = new THREE.Sprite(labelSpriteMat);
+        labelSprite.position.set(0.7, 0.65, 0);
+        labelSprite.scale.set(0.7, 0.35, 1);
+        this.scene.add(labelSprite);
+        this.cardsMap.push(labelSprite);
+      }
     }
 
     // 2. Draw active cards in player hands (offset in front of their seats)
@@ -1276,10 +1377,19 @@ export class ThreeRenderer {
     if (this.currentState) {
       const timer = Date.now() * 0.0005;
       
-      // Let seated avatars bounce/breathe gently
+      // Let seated avatars bounce/breathe gently, and animate their right hand moving
       this.avatarsMap.forEach((avatarGroup, pid) => {
         const index = Object.keys(this.currentState!.players).indexOf(pid);
         avatarGroup.position.y = Math.sin(timer * 2 + index) * 0.02;
+
+        // Animate jointed right arm (breathing/waving)
+        const upper = avatarGroup.getObjectByName('right-upper-arm') as THREE.Group;
+        const lower = avatarGroup.getObjectByName('right-lower-arm') as THREE.Group;
+        if (upper && lower) {
+          upper.rotation.x = -0.4 + Math.sin(timer * 4 + index) * 0.15;
+          upper.rotation.z = 0.15 + Math.cos(timer * 3 + index) * 0.08;
+          lower.rotation.x = -0.3 + Math.sin(timer * 6 + index) * 0.2;
+        }
       });
 
       // Lerp pawn group positions smoothly towards their current targets
