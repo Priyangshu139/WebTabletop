@@ -315,7 +315,8 @@ export class ThreeRenderer {
 
     this.scene.add(chandelier);
 
-    // 5. Cozy Corner Floor Lamp
+    // 5. Cozy Corner Floor Lamps (Two lamps: back-left and front-right)
+    // Floor Lamp 1 (Back-Left Corner)
     const lampGroup = new THREE.Group();
     lampGroup.position.set(-9.0, -3.1, -9.0);
 
@@ -350,6 +351,42 @@ export class ThreeRenderer {
     this.scene.add(lampLight);
 
     this.scene.add(lampGroup);
+
+    // Floor Lamp 2 (Front-Right Corner)
+    const lampGroup2 = new THREE.Group();
+    lampGroup2.position.set(9.0, -3.1, 9.0);
+
+    const baseMesh2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.5, 0.1, 16),
+      new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8, roughness: 0.2 })
+    );
+    baseMesh2.position.y = 0.05;
+    baseMesh2.castShadow = true;
+    lampGroup2.add(baseMesh2);
+
+    const poleMesh2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.06, 0.06, 4.5, 8),
+      new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.8, roughness: 0.2 })
+    );
+    poleMesh2.position.y = 2.25;
+    poleMesh2.castShadow = true;
+    lampGroup2.add(poleMesh2);
+
+    const shadeMesh2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.35, 0.5, 0.7, 16),
+      new THREE.MeshStandardMaterial({ color: 0xfef08a, emissive: 0xfef08a, emissiveIntensity: 0.6, roughness: 0.5 })
+    );
+    shadeMesh2.position.y = 4.6;
+    shadeMesh2.castShadow = true;
+    lampGroup2.add(shadeMesh2);
+
+    const lampLight2 = new THREE.PointLight(0xfff7ed, 3.5, 12);
+    lampLight2.position.set(9.0, 1.5, 9.0);
+    lampLight2.castShadow = true;
+    lampLight2.shadow.bias = -0.002;
+    this.scene.add(lampLight2);
+
+    this.scene.add(lampGroup2);
 
     // 6. Wall Paintings (Canvas & art details use MeshBasicMaterial so they are self-illuminated)
     // Painting 1: Abstract Art on Back Wall
@@ -510,7 +547,8 @@ export class ThreeRenderer {
 
     this.scene.add(bookcase);
 
-    // 9. Indoor Plant on Stand (Back Right Corner)
+    // 9. Indoor Plants on Stands (Two plants: back-right and front-left)
+    // Plant 1 (Back-Right Corner)
     const plantGroup = new THREE.Group();
     plantGroup.position.set(9.0, -3.1, -9.0);
 
@@ -562,6 +600,48 @@ export class ThreeRenderer {
     });
 
     this.scene.add(plantGroup);
+
+    // Plant 2 (Front-Left Corner)
+    const plantGroup2 = new THREE.Group();
+    plantGroup2.position.set(-9.0, -3.1, 9.0);
+
+    const standMesh2 = new THREE.Mesh(
+      new THREE.BoxGeometry(1.2, 1.2, 1.2),
+      new THREE.MeshStandardMaterial({ color: 0x27272a, roughness: 0.8 })
+    );
+    standMesh2.position.y = 0.6;
+    standMesh2.castShadow = true;
+    standMesh2.receiveShadow = true;
+    plantGroup2.add(standMesh2);
+
+    const potMesh2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.5, 0.4, 0.8, 12),
+      new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.6 })
+    );
+    potMesh2.position.y = 1.6;
+    potMesh2.castShadow = true;
+    plantGroup2.add(potMesh2);
+
+    const dirtMesh2 = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.46, 0.46, 0.1, 12),
+      new THREE.MeshStandardMaterial({ color: 0x451a03, roughness: 0.9 })
+    );
+    dirtMesh2.position.y = 1.96;
+    plantGroup2.add(dirtMesh2);
+
+    const stalk2 = new THREE.Mesh(new THREE.BoxGeometry(0.12, 1.5, 0.12), leafMat);
+    stalk2.position.set(0, plantCenterY + 0.75, 0);
+    plantGroup2.add(stalk2);
+
+    leavesData.forEach(ld => {
+      const leaf = new THREE.Mesh(new THREE.BoxGeometry(ld.size[0], ld.size[1], ld.size[2]), leafMat);
+      leaf.position.set(ld.pos[0], ld.pos[1], ld.pos[2]);
+      leaf.rotation.set(ld.rot[0], ld.rot[1], ld.rot[2]);
+      leaf.castShadow = true;
+      plantGroup2.add(leaf);
+    });
+
+    this.scene.add(plantGroup2);
   }
 
   private createWallTexture(): THREE.Texture {
