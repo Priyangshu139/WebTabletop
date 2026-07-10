@@ -1025,17 +1025,62 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
               75% { transform: translateY(-8px) rotate(-1deg); }
               100% { transform: translateY(0) rotate(0deg); }
             }
+
+            /* Responsive phone landscape layout overrides */
+            @media (max-height: 580px) and (orientation: landscape) {
+              #uno-hud-actions-bar {
+                left: 12px !important;
+                bottom: 50% !important;
+                transform: translateY(50%) !important;
+                flex-direction: column !important;
+                width: 130px !important;
+                border-radius: 16px !important;
+                padding: 10px !important;
+                gap: 8px !important;
+              }
+              #uno-hud-actions-bar button {
+                padding: 6px 12px !important;
+                font-size: 10px !important;
+                border-radius: 12px !important;
+                width: 100% !important;
+                justify-content: center !important;
+              }
+              
+              #uno-hud-right-panel {
+                right: 12px !important;
+                scale: 0.75 !important;
+                transform: translateY(-50%) !important;
+                transform-origin: right center !important;
+              }
+
+              #uno-hand-gui-container {
+                bottom: 12px !important;
+                left: 55% !important;
+                transform: translateX(-50%) !important;
+                width: 50% !important;
+                max-width: 480px !important;
+              }
+              #my-cards-container {
+                padding: 6px 12px !important;
+                border-radius: 14px !important;
+              }
+              .card-btn {
+                width: 52px !important;
+                height: 76px !important;
+                border-radius: 6px !important;
+              }
+            }
           </style>
 
           <!-- Bottom Hand HUD -->
-          <div style="position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 75%; max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <div id="uno-hand-gui-container" style="position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); width: 75%; max-width: 900px; display: flex; flex-direction: column; align-items: center; gap: 8px;">
             <div id="my-cards-container" style="display: flex; gap: 12px; overflow-x: auto; padding: 12px 24px; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border-radius: 20px; border: 1px solid rgba(255,255,255,0.1); max-width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.65); pointer-events: auto;">
               <!-- Cards dynamically populated -->
             </div>
           </div>
 
           <!-- Bottom Actions Bar -->
-          <div style="position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; pointer-events: auto; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); padding: 8px 24px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 25px rgba(0,0,0,0.5);">
+          <div id="uno-hud-actions-bar" style="position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%); display: flex; gap: 12px; pointer-events: auto; background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); padding: 8px 24px; border-radius: 40px; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 25px rgba(0,0,0,0.5);">
             <button class="action-btn" id="btn-play-card-hud" style="display: none; background: #16a34a; color: white; border: none; border-radius: 20px; padding: 8px 24px; font-size: 12px; font-weight: 800; cursor: pointer; align-items: center; gap: 6px; transition: all 0.2s;">
               🟢 PLAY CARD
             </button>

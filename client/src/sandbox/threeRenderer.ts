@@ -743,26 +743,56 @@ export class ThreeRenderer {
       this.isDragging = false;
     };
 
+    // Touch variables for split controls (left side = camera, right side = pointing hand)
+    let touchMode: 'none' | 'cam' | 'hand' = 'none';
+
     // Touch events for mobile/Android
     const onTouchStart = (e: TouchEvent) => {
       if (e.touches[0]) {
-        this.isDragging = true;
-        this.previousMouseX = e.touches[0].clientX;
-        this.previousMouseY = e.touches[0].clientY;
+        const x = e.touches[0].clientX;
+        const midX = window.innerWidth / 2;
+        if (x < midX) {
+          touchMode = 'cam';
+          this.isDragging = true;
+          this.previousMouseX = e.touches[0].clientX;
+          this.previousMouseY = e.touches[0].clientY;
+        } else {
+          touchMode = 'hand';
+          const rightHalfWidth = window.innerWidth / 2;
+          this.mouseX = ((x - midX) / rightHalfWidth) * 2 - 1;
+          this.mouseY = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+        }
       }
     };
 
     const onTouchMove = (e: TouchEvent) => {
-      if (!this.isDragging || !e.touches[0]) return;
-      const dx = e.touches[0].clientX - this.previousMouseX;
-      const dy = e.touches[0].clientY - this.previousMouseY;
+      if (!e.touches[0]) return;
+      
+      if (touchMode === 'cam' && this.isDragging) {
+        const dx = e.touches[0].clientX - this.previousMouseX;
+        const dy = e.touches[0].clientY - this.previousMouseY;
 
-      this.theta -= dx * 0.007;
-      this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi - dy * 0.005));
+        this.theta -= dx * 0.007;
+        this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi - dy * 0.005));
 
-      this.previousMouseX = e.touches[0].clientX;
-      this.previousMouseY = e.touches[0].clientY;
-      this.updateCameraPosition();
+        this.previousMouseX = e.touches[0].clientX;
+        this.previousMouseY = e.touches[0].clientY;
+        this.updateCameraPosition();
+      } else if (touchMode === 'hand') {
+        const x = e.touches[0].clientX;
+        const midX = window.innerWidth / 2;
+        const rightHalfWidth = window.innerWidth / 2;
+        this.mouseX = ((x - midX) / rightHalfWidth) * 2 - 1;
+        this.mouseY = -(e.touches[0].clientY / window.innerHeight) * 2 + 1;
+      }
+    };
+
+    const onTouchEnd = () => {
+      this.isDragging = false;
+      touchMode = 'none';
+      // Reset hand cursor back to center when touch is released
+      this.mouseX = 0;
+      this.mouseY = 0;
     };
 
     // Zoom wheel
@@ -777,7 +807,7 @@ export class ThreeRenderer {
 
     dom.addEventListener('touchstart', onTouchStart, { passive: true });
     window.addEventListener('touchmove', onTouchMove, { passive: true });
-    window.addEventListener('touchend', onMouseUp);
+    window.addEventListener('touchend', onTouchEnd);
 
     dom.addEventListener('wheel', onWheel, { passive: true });
   }
