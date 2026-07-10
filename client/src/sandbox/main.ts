@@ -1008,11 +1008,6 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
                 ⏱️ <span id="uno-turn-timer">30s</span>
               </div>
             </div>
-
-            <!-- Direction of Play -->
-            <div style="background: rgba(255, 251, 235, 0.08); backdrop-filter: blur(6px); border: 1px solid rgba(251, 191, 36, 0.2); border-radius: 8px; padding: 4px 12px; font-size: 10px; color: #fbbf24; font-weight: bold; letter-spacing: 0.5px; display: flex; align-items: center; gap: 6px; box-shadow: 0 2px 8px rgba(0,0,0,0.2);">
-              DIRECTION OF PLAY: <span id="uno-direction-text" style="color: white; font-weight: 800;">➡️ CLOCKWISE</span>
-            </div>
           </div>
 
           <!-- Top Right: Quick Actions Buttons -->
@@ -1201,6 +1196,68 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
       syncEngine?.sendChat("Shouted UNO! 🎴");
       triggerFloatingAlert('You shouted UNO!');
     });
+
+    document.getElementById('uno-btn-settings')?.addEventListener('click', () => {
+      // Create settings modal overlay
+      const modal = document.createElement('div');
+      modal.id = 'gameplay-settings-modal';
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100vw';
+      modal.style.height = '100vh';
+      modal.style.background = 'rgba(15, 23, 42, 0.65)';
+      modal.style.backdropFilter = 'blur(16px)';
+      (modal.style as any).webkitBackdropFilter = 'blur(16px)';
+      modal.style.display = 'flex';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.zIndex = '99999';
+      modal.style.color = '#ffffff';
+
+      const currentMultiplier = threeRenderer ? (threeRenderer as any).lightMultiplier : 1.0;
+
+      modal.innerHTML = `
+        <div style="background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 24px; width: 300px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 20px; pointer-events: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+            <h2 style="margin: 0; font-size: 16px; font-weight: 800; color: #f8fafc;">⚙️ Game Settings</h2>
+            <button id="close-settings-modal" style="background: none; border: none; font-size: 20px; color: #94a3b8; cursor: pointer; padding: 0;">&times;</button>
+          </div>
+          
+          <!-- Light Intensity Slider -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 13px; font-weight: bold; color: #cbd5e1;">Light Intensity</label>
+              <span id="light-val-label" style="font-size: 12px; font-family: monospace; color: #3b82f6; font-weight: 800;">${currentMultiplier.toFixed(1)}x</span>
+            </div>
+            <input type="range" id="light-intensity-slider" min="0.5" max="3.0" step="0.1" value="${currentMultiplier}" style="width: 100%; accent-color: #3b82f6; cursor: pointer;">
+            <div style="font-size: 10px; color: #64748b; line-height: 1.4;">Adjust light intensity for better visibility on mobile screens.</div>
+          </div>
+
+          <button id="btn-save-settings-modal" style="background: #3b82f6; color: white; border: none; border-radius: 12px; padding: 10px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s;">Save & Close</button>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      const slider = modal.querySelector('#light-intensity-slider') as HTMLInputElement;
+      const valLabel = modal.querySelector('#light-val-label') as HTMLSpanElement;
+      
+      slider.addEventListener('input', () => {
+        const val = parseFloat(slider.value);
+        valLabel.innerText = `${val.toFixed(1)}x`;
+        if (threeRenderer) {
+          threeRenderer.setLightIntensity(val);
+        }
+      });
+
+      const close = () => {
+        modal.remove();
+      };
+
+      modal.querySelector('#close-settings-modal')?.addEventListener('click', close);
+      modal.querySelector('#btn-save-settings-modal')?.addEventListener('click', close);
+    });
   } else {
     // 3-Column Standard Layout for Ludo/Monopoly
     mainContent.style.display = 'grid';
@@ -1356,6 +1413,11 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
   const container = document.getElementById('three-canvas-container') as HTMLDivElement;
   if (container) {
     threeRenderer = new ThreeRenderer(container, playerId);
+    // Auto boost light intensity to 1.6x on mobile/touch screens
+    const isMobileDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+    if (isMobileDevice) {
+      threeRenderer.setLightIntensity(1.6);
+    }
   }
 
   if (activeGame !== 'uno-go') {
@@ -1490,6 +1552,11 @@ function initializeReplay(payload: ReplayPayload) {
     const container = document.getElementById('three-canvas-container') as HTMLDivElement;
     if (container) {
       threeRenderer = new ThreeRenderer(container, 'P1');
+      // Auto boost light intensity to 1.6x on mobile/touch screens
+      const isMobileDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      if (isMobileDevice) {
+        threeRenderer.setLightIntensity(1.6);
+      }
     }
 
     // Instantiate Replay Engine

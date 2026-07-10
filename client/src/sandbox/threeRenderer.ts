@@ -43,9 +43,27 @@ export class ThreeRenderer {
   // Remote player poses received over WebRTC
   private remotePoses: Map<string, { theta: number; phi: number; mouseX: number; mouseY: number }> = new Map();
 
+  // Light properties to adjust intensity dynamically
+  private ambientLight!: THREE.AmbientLight;
+  private dirLight!: THREE.DirectionalLight;
+  private spotLight!: THREE.SpotLight;
+  private lampLight: THREE.PointLight | null = null;
+  private lampLight2: THREE.PointLight | null = null;
+  private lightMultiplier: number = 1.0;
+
   /** Apply a received remote player pose */
   public applyRemotePose(playerId: string, theta: number, phi: number, mouseX: number, mouseY: number) {
     this.remotePoses.set(playerId, { theta, phi, mouseX, mouseY });
+  }
+
+  /** Dynamically adjust scene light intensity */
+  public setLightIntensity(multiplier: number) {
+    this.lightMultiplier = multiplier;
+    if (this.ambientLight) this.ambientLight.intensity = 0.45 * multiplier;
+    if (this.dirLight) this.dirLight.intensity = 0.4 * multiplier;
+    if (this.spotLight) this.spotLight.intensity = 1.8 * multiplier;
+    if (this.lampLight) this.lampLight.intensity = 3.5 * multiplier;
+    if (this.lampLight2) this.lampLight2.intensity = 3.5 * multiplier;
   }
 
   constructor(container: HTMLDivElement, activePlayerId: string) {
@@ -78,22 +96,22 @@ export class ThreeRenderer {
     this.container.appendChild(this.renderer.domElement);
 
     // Lights
-    const ambientLight = new THREE.AmbientLight(0x4b5563, 0.45); // soft warm gray ambient
-    this.scene.add(ambientLight);
+    this.ambientLight = new THREE.AmbientLight(0x4b5563, 0.45); // soft warm gray ambient
+    this.scene.add(this.ambientLight);
 
-    const dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
-    dirLight.position.set(5, 12, 7);
-    dirLight.castShadow = true;
-    this.scene.add(dirLight);
+    this.dirLight = new THREE.DirectionalLight(0xffffff, 0.4);
+    this.dirLight.position.set(5, 12, 7);
+    this.dirLight.castShadow = true;
+    this.scene.add(this.dirLight);
 
     // Warm table spotlight for dramatic voxel tabletop look
-    const spotLight = new THREE.SpotLight(0xffedd5, 1.8, 18, Math.PI / 3, 0.6, 0.8);
-    spotLight.position.set(0, 8, 0);
-    spotLight.target.position.set(0, 0, 0);
-    spotLight.castShadow = true;
-    spotLight.shadow.mapSize.width = 1024;
-    spotLight.shadow.mapSize.height = 1024;
-    this.scene.add(spotLight);
+    this.spotLight = new THREE.SpotLight(0xffedd5, 1.8, 18, Math.PI / 3, 0.6, 0.8);
+    this.spotLight.position.set(0, 8, 0);
+    this.spotLight.target.position.set(0, 0, 0);
+    this.spotLight.castShadow = true;
+    this.spotLight.shadow.mapSize.width = 1024;
+    this.spotLight.shadow.mapSize.height = 1024;
+    this.scene.add(this.spotLight);
 
     // Window Resize Handler
     window.addEventListener('resize', this.onResize);
@@ -389,11 +407,11 @@ export class ThreeRenderer {
     shadeMesh.castShadow = true;
     lampGroup.add(shadeMesh);
 
-    const lampLight = new THREE.PointLight(0xfff7ed, 3.5, 12);
-    lampLight.position.set(-9.0, 1.5, -9.0);
-    lampLight.castShadow = true;
-    lampLight.shadow.bias = -0.002;
-    this.scene.add(lampLight);
+    this.lampLight = new THREE.PointLight(0xfff7ed, 3.5 * this.lightMultiplier, 12);
+    this.lampLight.position.set(-9.0, 1.5, -9.0);
+    this.lampLight.castShadow = true;
+    this.lampLight.shadow.bias = -0.002;
+    this.scene.add(this.lampLight);
 
     this.scene.add(lampGroup);
 
@@ -425,11 +443,11 @@ export class ThreeRenderer {
     shadeMesh2.castShadow = true;
     lampGroup2.add(shadeMesh2);
 
-    const lampLight2 = new THREE.PointLight(0xfff7ed, 3.5, 12);
-    lampLight2.position.set(9.0, 1.5, 9.0);
-    lampLight2.castShadow = true;
-    lampLight2.shadow.bias = -0.002;
-    this.scene.add(lampLight2);
+    this.lampLight2 = new THREE.PointLight(0xfff7ed, 3.5 * this.lightMultiplier, 12);
+    this.lampLight2.position.set(9.0, 1.5, 9.0);
+    this.lampLight2.castShadow = true;
+    this.lampLight2.shadow.bias = -0.002;
+    this.scene.add(this.lampLight2);
 
     this.scene.add(lampGroup2);
 
