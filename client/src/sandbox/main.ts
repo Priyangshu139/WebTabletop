@@ -610,6 +610,29 @@ function showError(msg: string) {
   });
 }
 
+function requestFullscreenIfSupported() {
+  const docEl = document.documentElement;
+  try {
+    if (docEl.requestFullscreen) {
+      docEl.requestFullscreen().catch(() => {});
+    } else if ((docEl as any).webkitRequestFullscreen) {
+      (docEl as any).webkitRequestFullscreen();
+    } else if ((docEl as any).msRequestFullscreen) {
+      (docEl as any).msRequestFullscreen();
+    }
+  } catch (_) {}
+}
+
+function enableAutoFullscreen() {
+  const handler = () => {
+    requestFullscreenIfSupported();
+    window.removeEventListener('click', handler);
+    window.removeEventListener('touchstart', handler);
+  };
+  window.addEventListener('click', handler);
+  window.addEventListener('touchstart', handler);
+}
+
 async function initializeSync(
   lobbyId: string,
   playerId: string,
@@ -620,6 +643,7 @@ async function initializeSync(
   gameModule?: 'ludo-go-classic' | 'monopoly-go' | 'uno-go',
   timerLimit?: number
 ) {
+  enableAutoFullscreen(); // Automatically request fullscreen on first click/touch in lobby or game
   activeSeatId = playerId;
   isReplayMode = false;
   spectatingPlayerId = 'P1';
@@ -962,7 +986,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
         <div id="uno-game-hud" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; font-family: 'Outfit', 'Inter', sans-serif;">
           
           <!-- Top Left: Game Info Box -->
-          <div style="position: absolute; top: 20px; left: 20px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 18px; color: white; display: flex; align-items: center; gap: 12px; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.45);">
+          <div id="uno-hud-game-info" style="position: absolute; top: 20px; left: 20px; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 12px 18px; color: white; display: flex; align-items: center; gap: 12px; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.45);">
             <div style="background: #ef4444; width: 42px; height: 42px; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-style: italic; font-size: 15px; border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 2px 8px rgba(239,68,68,0.4);">UNO</div>
             <div>
               <div style="font-size: 14px; font-weight: 800; letter-spacing: 0.5px; color: white;">GAME: UNO</div>
@@ -975,7 +999,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
           </div>
 
           <!-- Top Center: Turn Indicator Pill & Timer -->
-          <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px;">
+          <div id="uno-hud-turn-info" style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 8px;">
             <div style="background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.15); border-radius: 30px; padding: 8px 24px; color: white; display: flex; align-items: center; gap: 10px; pointer-events: auto; box-shadow: 0 4px 20px rgba(0,0,0,0.45);">
               <div id="uno-turn-dot" style="width: 12px; height: 12px; border-radius: 50%; background: #10b981; box-shadow: 0 0 8px #10b981;"></div>
               <div id="uno-turn-text" style="font-size: 14px; font-weight: bold;">Loading...</div>
@@ -992,7 +1016,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
           </div>
 
           <!-- Top Right: Quick Actions Buttons -->
-          <div style="position: absolute; top: 20px; right: 20px; display: flex; gap: 8px; pointer-events: auto;">
+          <div id="uno-hud-quick-actions" style="position: absolute; top: 20px; right: 20px; display: flex; gap: 8px; pointer-events: auto;">
             <button class="action-btn" id="uno-btn-mute" style="padding: 10px; margin: 0; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: white;">🔊</button>
             <button class="action-btn" id="uno-btn-settings" style="padding: 10px; margin: 0; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: white;">⚙️</button>
             <button class="action-btn" id="btn-exit-game" style="padding: 10px; margin: 0; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: #ef4444;">🚪</button>
@@ -1028,27 +1052,52 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
 
             /* Responsive phone landscape layout overrides */
             @media (max-height: 580px) and (orientation: landscape) {
+              /* Top HUD elements size reduction */
+              #uno-hud-game-info {
+                top: 8px !important;
+                left: 8px !important;
+                padding: 6px 10px !important;
+                gap: 8px !important;
+                scale: 0.75 !important;
+                transform-origin: left top !important;
+              }
+              #uno-hud-turn-info {
+                top: 8px !important;
+                scale: 0.75 !important;
+                transform-origin: center top !important;
+                transform: translateX(-50%) !important;
+              }
+              #uno-hud-quick-actions {
+                top: 8px !important;
+                right: 8px !important;
+                scale: 0.75 !important;
+                transform-origin: right top !important;
+              }
+
+              /* Left side action buttons bar: stacked and width just enough for text */
               #uno-hud-actions-bar {
-                left: 12px !important;
+                left: 8px !important;
                 bottom: 50% !important;
                 transform: translateY(50%) !important;
                 flex-direction: column !important;
-                width: 130px !important;
-                border-radius: 16px !important;
-                padding: 10px !important;
-                gap: 8px !important;
+                width: auto !important; /* shrink-to-fit content */
+                border-radius: 12px !important;
+                padding: 6px !important;
+                gap: 6px !important;
+                align-items: center !important;
               }
               #uno-hud-actions-bar button {
-                padding: 6px 12px !important;
-                font-size: 10px !important;
-                border-radius: 12px !important;
-                width: 100% !important;
+                padding: 5px 10px !important;
+                font-size: 9px !important;
+                border-radius: 10px !important;
+                width: auto !important; /* just enough for text size! */
+                min-width: 80px !important;
                 justify-content: center !important;
               }
               
               #uno-hud-right-panel {
                 right: 12px !important;
-                scale: 0.75 !important;
+                scale: 0.7 !important;
                 transform: translateY(-50%) !important;
                 transform-origin: right center !important;
               }
