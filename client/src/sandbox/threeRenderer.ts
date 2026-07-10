@@ -1513,7 +1513,10 @@ export class ThreeRenderer {
             upper.rotation.x = THREE.MathUtils.lerp(upper.rotation.x, targetXRot, 0.15);
             upper.rotation.y = THREE.MathUtils.lerp(upper.rotation.y, targetYRot, 0.15);
             upper.rotation.z = THREE.MathUtils.lerp(upper.rotation.z, 0, 0.15); // reset side angle
-            lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(this.mouseX) * 0.8, 0.15);
+
+            // 2nd joint (elbow) bends dynamically depending on target vertical & horizontal depth
+            const targetLowerX = -0.5 + this.mouseY * 0.8 - Math.abs(this.mouseX) * 0.5;
+            lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, targetLowerX, 0.15);
           } else {
             // Other players: use remote pose if available, else procedural breathing
             const remotePose = this.remotePoses.get(pid);
@@ -1524,7 +1527,10 @@ export class ThreeRenderer {
               upper.rotation.x = THREE.MathUtils.lerp(upper.rotation.x, rTargetXRot, 0.12);
               upper.rotation.y = THREE.MathUtils.lerp(upper.rotation.y, rTargetYRot, 0.12);
               upper.rotation.z = THREE.MathUtils.lerp(upper.rotation.z, 0, 0.12);
-              lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(remotePose.mouseX) * 0.8, 0.12);
+
+              // 2nd joint for remote player
+              const rTargetLowerX = -0.5 + remotePose.mouseY * 0.8 - Math.abs(remotePose.mouseX) * 0.5;
+              lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, rTargetLowerX, 0.12);
             } else {
               upper.rotation.x = -0.4 + Math.sin(timer * 4 + index) * 0.15;
               upper.rotation.y = 0;
