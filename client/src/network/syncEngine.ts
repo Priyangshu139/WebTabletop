@@ -5,6 +5,14 @@ import { applyEvent } from '../engine/reducer';
 import { SignalingClient } from './signalingClient';
 import { WebRTCManager } from './webrtcManager';
 
+export interface PlayerPose {
+  playerId: string;
+  theta: number;    // head horizontal angle
+  phi: number;      // head vertical angle
+  mouseX: number;   // normalized cursor X for hand pointing
+  mouseY: number;   // normalized cursor Y for hand pointing
+}
+
 export class SyncEngine {
   public state: EngineState;
   public playerId: string;
@@ -22,6 +30,7 @@ export class SyncEngine {
   private onStateUpdate: (state: EngineState) => void;
   private onError?: (msg: string) => void;
   private onChatReceived?: (chat: any) => void;
+  public onPoseReceived?: (pose: PlayerPose) => void;
 
   constructor(
     initialState: EngineState,
@@ -87,6 +96,16 @@ export class SyncEngine {
 
     // 2. WebRTC Handlers
     this.webrtcManager.onMessage = (senderId, data) => {
+      // Handle ephemeral pose data separately (high frequency, no logging)
+      if (data.type === 'POSE') {
+        if (this.isHost) {
+          // Host re-broadcasts pose to all other peers
+          this.webrtcManager.broadcastExcept(senderId, data);
+        }
+        this.onPoseReceived?.(data.pose as PlayerPose);
+        return;
+      }
+
       console.log(`[WebRTC] Received message from ${senderId} of type ${data.type}`);
       if (data.type === 'COMMAND') {
         if (this.isHost) {
@@ -305,6 +324,22 @@ export class SyncEngine {
       this.webrtcManager.broadcast({ type: 'CHAT', chat });
     } catch (err: any) {
       console.error('Failed to send chat over P2P:', err);
+    }
+  }
+
+  /** Send ephemeral pose data (head/hand position) to all peers at ~10 Hz */
+  public sendPose(theta: number, phi: number, mouseX: number, mouseY: number) {
+    const pose: PlayerPose = {
+      playerId: this.playerId,
+      theta,
+      phi,
+      mouseX,
+      mouseY
+    };
+    try {
+      this.webrtcManager.broadcast({ type: 'POSE', pose });
+    } catch (_) {
+      // Pose data is fire-and-forget; suppress errors
     }
   }
 

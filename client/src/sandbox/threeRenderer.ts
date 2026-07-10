@@ -39,6 +39,14 @@ export class ThreeRenderer {
   private mouseX: number = 0;
   private mouseY: number = 0;
 
+  // Remote player poses received over WebRTC
+  private remotePoses: Map<string, { theta: number; phi: number; mouseX: number; mouseY: number }> = new Map();
+
+  /** Apply a received remote player pose */
+  public applyRemotePose(playerId: string, theta: number, phi: number, mouseX: number, mouseY: number) {
+    this.remotePoses.set(playerId, { theta, phi, mouseX, mouseY });
+  }
+
   constructor(container: HTMLDivElement, activePlayerId: string) {
     this.container = container;
     this.activePlayerId = activePlayerId;
@@ -1458,12 +1466,26 @@ export class ThreeRenderer {
             headGroup.rotation.y = THREE.MathUtils.lerp(headGroup.rotation.y, targetY, 0.15);
             headGroup.rotation.x = THREE.MathUtils.lerp(headGroup.rotation.x, targetX, 0.15);
           } else {
-            // Reset other players' heads to default lookAt center
-            headGroup.rotation.set(0, 0, 0);
+            // Other players: use remote pose if available, else idle
+            const remotePose = this.remotePoses.get(pid);
+            if (remotePose) {
+              const playerIds = Object.keys(this.currentState!.players);
+              const numPlayers = playerIds.length;
+              const idx = playerIds.indexOf(pid);
+              const angle = (idx / numPlayers) * Math.PI * 2;
+
+              const targetY = remotePose.theta - angle + Math.PI;
+              const targetX = remotePose.phi - Math.PI / 2;
+
+              headGroup.rotation.y = THREE.MathUtils.lerp(headGroup.rotation.y, targetY, 0.12);
+              headGroup.rotation.x = THREE.MathUtils.lerp(headGroup.rotation.x, targetX, 0.12);
+            } else {
+              headGroup.rotation.set(0, 0, 0);
+            }
           }
         }
 
-        // Animate jointed right arm (pointing to cursor for self, breathing/waving for others)
+        // Animate jointed right arm (pointing to cursor for self, remote pose for others)
         const upper = avatarGroup.getObjectByName('right-upper-arm') as THREE.Group;
         const lower = avatarGroup.getObjectByName('right-lower-arm') as THREE.Group;
         if (upper && lower) {
@@ -1477,11 +1499,22 @@ export class ThreeRenderer {
             upper.rotation.z = THREE.MathUtils.lerp(upper.rotation.z, 0, 0.15); // reset side angle
             lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(this.mouseX) * 0.3, 0.15);
           } else {
-            // Other players' right hands wave/breathe procedurally
-            upper.rotation.x = -0.4 + Math.sin(timer * 4 + index) * 0.15;
-            upper.rotation.y = 0; // reset horizontal turn
-            upper.rotation.z = -0.15 - Math.cos(timer * 3 + index) * 0.08; // slight outward angle on right side (-x)
-            lower.rotation.x = -0.3 + Math.sin(timer * 6 + index) * 0.2;
+            // Other players: use remote pose if available, else procedural breathing
+            const remotePose = this.remotePoses.get(pid);
+            if (remotePose) {
+              const rTargetXRot = -0.4 - remotePose.mouseY * 0.7;
+              const rTargetYRot = -remotePose.mouseX * 0.8;
+
+              upper.rotation.x = THREE.MathUtils.lerp(upper.rotation.x, rTargetXRot, 0.12);
+              upper.rotation.y = THREE.MathUtils.lerp(upper.rotation.y, rTargetYRot, 0.12);
+              upper.rotation.z = THREE.MathUtils.lerp(upper.rotation.z, 0, 0.12);
+              lower.rotation.x = THREE.MathUtils.lerp(lower.rotation.x, -0.2 - Math.abs(remotePose.mouseX) * 0.3, 0.12);
+            } else {
+              upper.rotation.x = -0.4 + Math.sin(timer * 4 + index) * 0.15;
+              upper.rotation.y = 0;
+              upper.rotation.z = -0.15 - Math.cos(timer * 3 + index) * 0.08;
+              lower.rotation.x = -0.3 + Math.sin(timer * 6 + index) * 0.2;
+            }
           }
         }
       });

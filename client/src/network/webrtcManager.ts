@@ -166,6 +166,15 @@ export class WebRTCManager {
     });
   }
 
+  /** Broadcast to all peers except the specified one (used for relay) */
+  public broadcastExcept(excludeId: string, data: any): void {
+    Object.keys(this.channels).forEach(remoteId => {
+      if (remoteId !== excludeId) {
+        this.sendTo(remoteId, data);
+      }
+    });
+  }
+
   public close(): void {
     Object.keys(this.connections).forEach(remoteId => {
       this.cleanupConnection(remoteId);

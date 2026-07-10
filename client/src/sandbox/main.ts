@@ -896,6 +896,25 @@ async function initializeSync(
   try {
     await syncEngine.start();
     updateUI(syncEngine.state);
+
+    // Wire up live pose broadcasting at ~10 Hz (every 100ms)
+    setInterval(() => {
+      if (syncEngine && threeRenderer) {
+        syncEngine.sendPose(
+          (threeRenderer as any).theta,
+          (threeRenderer as any).phi,
+          (threeRenderer as any).mouseX,
+          (threeRenderer as any).mouseY
+        );
+      }
+    }, 100);
+
+    // Receive remote poses and apply to 3D avatars
+    syncEngine.onPoseReceived = (pose) => {
+      if (threeRenderer && pose.playerId !== activeSeatId) {
+        threeRenderer.applyRemotePose(pose.playerId, pose.theta, pose.phi, pose.mouseX, pose.mouseY);
+      }
+    };
   } catch (err: any) {
     alert(`Failed P2P Connection: ${err.message}`);
     renderMatchmaking();
