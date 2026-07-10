@@ -264,15 +264,41 @@ export class ThreeRenderer {
     centerDivider.position.set(0, 0, 0);
     windowGroup.add(centerDivider);
 
-    // Closed Burgundy Curtains (spanning 2.1 units each, meeting at the center)
-    const curtainMat = new THREE.MeshStandardMaterial({ color: 0x7f1d1d, roughness: 0.9 }); // burgundy
-    const leftCurtain = new THREE.Mesh(new THREE.BoxGeometry(0.15, 6.5, 2.1), curtainMat);
-    leftCurtain.position.set(0.05, -0.1, -1.05);
-    windowGroup.add(leftCurtain);
+    // Closed Grey-Blue Curtains (built using accordion folds to look realistic and wavy)
+    const curtainMat = new THREE.MeshStandardMaterial({
+      color: 0x475569, // Grey-blue (Slate)
+      roughness: 0.95,
+      metalness: 0.05
+    });
 
-    const rightCurtain = new THREE.Mesh(new THREE.BoxGeometry(0.15, 6.5, 2.1), curtainMat);
-    rightCurtain.position.set(0.05, -0.1, 1.05);
-    windowGroup.add(rightCurtain);
+    const numFolds = 6;
+    const foldWidth = 2.1 / numFolds;
+
+    // Left curtain panel folds
+    for (let i = 0; i < numFolds; i++) {
+      const zOffset = -2.1 + (i + 0.5) * foldWidth;
+      const xOffset = 0.05 + (i % 2 === 0 ? 0.04 : -0.04);
+      const fold = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 6.5, foldWidth + 0.02),
+        curtainMat
+      );
+      fold.position.set(xOffset, -0.1, zOffset);
+      fold.castShadow = true;
+      windowGroup.add(fold);
+    }
+
+    // Right curtain panel folds
+    for (let i = 0; i < numFolds; i++) {
+      const zOffset = (i + 0.5) * foldWidth;
+      const xOffset = 0.05 + (i % 2 === 0 ? 0.04 : -0.04);
+      const fold = new THREE.Mesh(
+        new THREE.BoxGeometry(0.12, 6.5, foldWidth + 0.02),
+        curtainMat
+      );
+      fold.position.set(xOffset, -0.1, zOffset);
+      fold.castShadow = true;
+      windowGroup.add(fold);
+    }
 
     // Curtain Rod
     const rodMesh = new THREE.Mesh(
