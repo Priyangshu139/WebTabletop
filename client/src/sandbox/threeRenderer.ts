@@ -874,7 +874,8 @@ export class ThreeRenderer {
         canvas.height = 128;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.font = '96px sans-serif';
+          // Stretched font size to fill the face canvas fully
+          ctx.font = '118px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
           ctx.fillText(state.players[pid].emojiFace || '🦊', 64, 64);
@@ -889,7 +890,8 @@ export class ThreeRenderer {
           new THREE.PlaneGeometry(0.44, 0.44),
           facePlaneMat
         );
-        facePlane.position.set(0, 0.95, 0.23); // positioned right on the front face of voxel head
+        // Positioned at z = 0.252 to sit cleanly in front of side hair (z = 0.24)
+        facePlane.position.set(0, 0.95, 0.252);
         group.add(facePlane);
 
         // 5. Arms
