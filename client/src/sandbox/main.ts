@@ -3,6 +3,7 @@ import { SyncEngine } from '../network/syncEngine';
 import { ReplayEngine, ReplayPayload } from '../engine/replay';
 import { ThreeRenderer } from './threeRenderer';
 import monopolyModule from './modules/monopoly_go.json';
+import { soundManager } from './soundManager';
 
 // Local controllers
 let syncEngine: SyncEngine | null = null;
@@ -886,6 +887,9 @@ async function initializeSync(
     },
     (chat) => {
       appendChatMessage(chat);
+      if (chat.message.includes('Shouted UNO!')) {
+        soundManager.playUnoFanfare();
+      }
     },
     playerTraits
   );
@@ -1510,10 +1514,19 @@ function updateUI(gameState: EngineState) {
     buildGameplayLayout(activeGame, syncEngine.lobbyId, activeSeatId, syncEngine.isHost, syncEngine.secretHash);
   }
 
-  // Trigger money badge notifications for newly received event log items
+  // Trigger money badge notifications and game sounds for newly received event log items
   if (gameState.eventLog && gameState.eventLog.length > lastProcessedEventCount) {
     const newEvents = gameState.eventLog.slice(lastProcessedEventCount);
     newEvents.forEach(evt => {
+      // Gameplay Sound Effects
+      if (evt.type === 'CARD_PLAYED') {
+        soundManager.playCardPlace();
+      } else if (evt.type === 'CARD_DRAWN') {
+        soundManager.playCardDraw();
+      } else if (evt.type === 'GAME_STARTED') {
+        soundManager.playCardFlip();
+      }
+
       if (evt.playerId === activeSeatId) {
         if (evt.type === 'SALARY_COLLECTED') {
           triggerFloatingMoneyAlert(200);
@@ -1811,7 +1824,8 @@ function updateUI(gameState: EngineState) {
             if (!selectedCard) return;
 
             if (!isMyTurn) {
-              // Not your turn — shake
+              // Not your turn — shake and buzz
+              soundManager.playErrorBuzz();
               cardEl.style.animation = 'cardShakeReject 0.5s ease';
               cardEl.addEventListener('animationend', () => { cardEl.style.animation = ''; }, { once: true });
               triggerFloatingAlert('Not your turn!');
@@ -1821,7 +1835,8 @@ function updateUI(gameState: EngineState) {
             // Check playability (Wild cards match any color)
             const topCard = gameState.moduleState.unoDiscardPile?.[gameState.moduleState.unoDiscardPile.length - 1];
             if (topCard && selectedCard.color !== 'wild' && topCard.color !== 'wild' && selectedCard.color !== topCard.color && selectedCard.value !== topCard.value) {
-              // Unplayable — shake animation
+              // Unplayable — shake and buzz
+              soundManager.playErrorBuzz();
               cardEl.style.animation = 'cardShakeReject 0.5s ease';
               cardEl.addEventListener('animationend', () => { cardEl.style.animation = ''; }, { once: true });
               triggerFloatingAlert('Card doesn\'t match!');
