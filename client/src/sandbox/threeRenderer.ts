@@ -50,10 +50,16 @@ export class ThreeRenderer {
   private lampLight: THREE.PointLight | null = null;
   private lampLight2: THREE.PointLight | null = null;
   private lightMultiplier: number = 1.0;
+  private cameraSensitivity: number = 1.0;
 
   /** Apply a received remote player pose */
   public applyRemotePose(playerId: string, theta: number, phi: number, mouseX: number, mouseY: number) {
     this.remotePoses.set(playerId, { theta, phi, mouseX, mouseY });
+  }
+
+  /** Expose camera sensitivity adjustment */
+  public setCameraSensitivity(val: number) {
+    this.cameraSensitivity = val;
   }
 
   /** Dynamically adjust scene light intensity */
@@ -749,8 +755,8 @@ export class ThreeRenderer {
       const dx = e.clientX - this.previousMouseX;
       const dy = e.clientY - this.previousMouseY;
 
-      this.theta -= dx * 0.007; // adjust rotation speed
-      this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi - dy * 0.005)); // clamp tilt angles to stay above table
+      this.theta += dx * 0.007 * this.cameraSensitivity; // direct horizontal rotation
+      this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi + dy * 0.005 * this.cameraSensitivity)); // direct vertical tilt
 
       this.previousMouseX = e.clientX;
       this.previousMouseY = e.clientY;
@@ -790,8 +796,8 @@ export class ThreeRenderer {
         const dx = e.touches[0].clientX - this.previousMouseX;
         const dy = e.touches[0].clientY - this.previousMouseY;
 
-        this.theta -= dx * 0.007;
-        this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi - dy * 0.005));
+        this.theta += dx * 0.007 * this.cameraSensitivity;
+        this.phi = Math.max(0.2, Math.min(Math.PI / 1.7, this.phi + dy * 0.005 * this.cameraSensitivity));
 
         this.previousMouseX = e.touches[0].clientX;
         this.previousMouseY = e.touches[0].clientY;

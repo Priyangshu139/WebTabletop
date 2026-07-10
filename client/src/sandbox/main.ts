@@ -436,7 +436,7 @@ function renderMatchmaking() {
 function renderJoinCodePane() {
   showError('');
   let mainContent = document.querySelector('.desktop-matchmaking-layout .lobby-main-display') as HTMLElement;
-  const isMobile = window.innerWidth <= 768;
+  const isMobile = window.innerWidth <= 960;
   if (!mainContent || isMobile) {
     mainContent = document.querySelector('.mobile-matchmaking-layout .matchmaking-setup-column') as HTMLElement;
   }
@@ -1216,6 +1216,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
       modal.style.color = '#ffffff';
 
       const currentMultiplier = threeRenderer ? (threeRenderer as any).lightMultiplier : 1.0;
+      const currentSensitivity = threeRenderer ? (threeRenderer as any).cameraSensitivity : 1.0;
 
       modal.innerHTML = `
         <div style="background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 24px; width: 300px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 20px; pointer-events: auto;">
@@ -1234,20 +1235,41 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
             <div style="font-size: 10px; color: #64748b; line-height: 1.4;">Adjust light intensity for better visibility on mobile screens.</div>
           </div>
 
+          <!-- Camera Sensitivity Slider -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 13px; font-weight: bold; color: #cbd5e1;">Camera Sensitivity</label>
+              <span id="sens-val-label" style="font-size: 12px; font-family: monospace; color: #10b981; font-weight: 800;">${currentSensitivity.toFixed(1)}x</span>
+            </div>
+            <input type="range" id="cam-sensitivity-slider" min="0.2" max="2.5" step="0.1" value="${currentSensitivity}" style="width: 100%; accent-color: #10b981; cursor: pointer;">
+            <div style="font-size: 10px; color: #64748b; line-height: 1.4;">Adjust drag responsiveness for direct camera look.</div>
+          </div>
+
           <button id="btn-save-settings-modal" style="background: #3b82f6; color: white; border: none; border-radius: 12px; padding: 10px; font-size: 13px; font-weight: bold; cursor: pointer; transition: background 0.2s;">Save & Close</button>
         </div>
       `;
 
       document.body.appendChild(modal);
 
-      const slider = modal.querySelector('#light-intensity-slider') as HTMLInputElement;
-      const valLabel = modal.querySelector('#light-val-label') as HTMLSpanElement;
+      const lightSlider = modal.querySelector('#light-intensity-slider') as HTMLInputElement;
+      const lightLabel = modal.querySelector('#light-val-label') as HTMLSpanElement;
       
-      slider.addEventListener('input', () => {
-        const val = parseFloat(slider.value);
-        valLabel.innerText = `${val.toFixed(1)}x`;
+      lightSlider.addEventListener('input', () => {
+        const val = parseFloat(lightSlider.value);
+        lightLabel.innerText = `${val.toFixed(1)}x`;
         if (threeRenderer) {
           threeRenderer.setLightIntensity(val);
+        }
+      });
+
+      const sensSlider = modal.querySelector('#cam-sensitivity-slider') as HTMLInputElement;
+      const sensLabel = modal.querySelector('#sens-val-label') as HTMLSpanElement;
+      
+      sensSlider.addEventListener('input', () => {
+        const val = parseFloat(sensSlider.value);
+        sensLabel.innerText = `${val.toFixed(1)}x`;
+        if (threeRenderer) {
+          threeRenderer.setCameraSensitivity(val);
         }
       });
 
