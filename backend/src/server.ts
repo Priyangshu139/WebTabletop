@@ -90,6 +90,13 @@ app.post('/api/lobby/join', (req, res) => {
     traits: { ...(traits || {}), isSpectator }
   };
 
+  // Migrate host if current host is offline
+  const hostPlayer = lobby.players[lobby.hostId];
+  const hostOffline = !hostPlayer || !hostPlayer.ws || hostPlayer.ws.readyState !== 1;
+  if (hostOffline) {
+    lobby.hostId = nextId;
+  }
+
   res.json({ lobbyId, playerId: nextId, secretHash, isSpectator });
 });
 
@@ -134,6 +141,40 @@ app.get('/api/lobby/:id/state', (req, res) => {
   }
 
   res.json({ state: lobby.stateBackup || null });
+});
+
+app.get('/api/lobby/:id/info', (req, res) => {
+  const lobbyId = req.params.id;
+  const playerId = req.query.playerId as string;
+  const secretHash = req.query.secretHash as string;
+  const lobby = lobbies[lobbyId];
+
+  if (!lobby) {
+    res.status(404).json({ error: 'Lobby not found.' });
+    return;
+  }
+
+  const player = lobby.players[playerId];
+  if (!player || player.secretHash !== secretHash) {
+    res.status(401).json({ error: 'Unauthorized.' });
+    return;
+  }
+
+  // Migrate host if host is offline
+  const currentHost = lobby.players[lobby.hostId];
+  const hostOffline = !currentHost || !currentHost.ws || currentHost.ws.readyState !== 1;
+  if (hostOffline) {
+    lobby.hostId = playerId;
+  }
+
+  res.json({
+    lobbyId: lobby.lobbyId,
+    hostId: lobby.hostId,
+    players: Object.keys(lobby.players).map(pid => ({
+      playerId: pid,
+      isSpectator: !!lobby.players[pid].traits?.isSpectator
+    }))
+  });
 });
 
 // Wrap express server with http to attach WebSocket listener
