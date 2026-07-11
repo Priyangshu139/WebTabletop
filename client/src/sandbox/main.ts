@@ -1164,6 +1164,8 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
         <h3 style="margin-top: 0; margin-bottom: 12px; color: white;">💬 Lobby Chat</h3>
         <div id="chat-pinned-container" style="display: none; margin-bottom: 8px;"></div>
         <div id="chat-messages" style="flex-grow: 1; overflow-y: auto; background: rgba(0,0,0,0.18); border-radius: 10px; padding: 8px; border: 1px solid var(--panel-border); font-size: 13px; margin-bottom: 12px;"></div>
+        <!-- Scrollable Meme list panel (covers no more than 40% height) -->
+        <div id="chat-meme-panel" style="max-height: 120px; overflow-y: auto; padding: 6px; background: rgba(15,23,42,0.4); border: 1px solid rgba(255,255,255,0.08); display: flex; flex-wrap: wrap; gap: 6px; box-sizing: border-box; pointer-events: auto; margin-bottom: 8px; border-radius: 8px;"></div>
         <div style="display: flex; gap: 6px;">
           <input type="text" id="chat-input" placeholder="Type a message..." style="flex-grow: 1; background: #1e293b; color: white; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; font-size: 13px;">
           <button class="action-btn" id="btn-send-chat" style="padding: 10px 14px; font-size: 13px; margin-right: 0;">Send</button>
@@ -1418,6 +1420,43 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
         handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
       }
     }, { passive: true });
+
+    // Chat Meme Panel rendering & click listener
+    const renderChatMemePanel = () => {
+      const panel = document.getElementById('chat-meme-panel');
+      if (!panel) return;
+
+      const wheel = JSON.parse(localStorage.getItem('webtabletop-meme-wheel') || '[]');
+      const colorMap: Record<string, string> = {
+        Blue: '#3b82f6',
+        Red: '#ef4444',
+        Purple: '#8b5cf6',
+        Orange: '#f59e0b',
+        Green: '#10b981'
+      };
+
+      const otherMemes = MEME_DATABASE.filter(m => !wheel.includes(m.id));
+
+      panel.innerHTML = otherMemes.map(meme => {
+        const color = colorMap[meme.color] || '#cbd5e1';
+        return `
+          <button class="chat-meme-pill-btn" data-meme-id="${meme.id}" style="background: rgba(15,23,42,0.65); border: 1.5px solid ${color}; color: ${color}; border-radius: 12px; padding: 4px 10px; font-size: 11px; font-weight: bold; cursor: pointer; transition: background 0.15s; pointer-events: auto;">
+            ${meme.emoji} ${meme.name.replace(/-/g, ' ')}
+          </button>
+        `;
+      }).join('');
+
+      panel.querySelectorAll('.chat-meme-pill-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const mid = (e.currentTarget as HTMLButtonElement).dataset.memeId || '';
+          if (syncEngine && mid) {
+            syncEngine.sendMeme(mid);
+          }
+        });
+      });
+    };
+
+    renderChatMemePanel();
   } else {
     // 3-Column Standard Layout for Ludo/Monopoly
     mainContent.style.display = 'grid';
