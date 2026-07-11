@@ -1,5 +1,22 @@
 class SoundManager {
   private ctx: AudioContext | null = null;
+  private soundMode: 'on' | 'game-only' | 'meme-only' | 'off' = 'on';
+
+  constructor() {
+    const saved = localStorage.getItem('webtabletop-sound-mode');
+    if (saved) {
+      this.soundMode = saved as any;
+    }
+  }
+
+  public setSoundMode(mode: 'on' | 'game-only' | 'meme-only' | 'off') {
+    this.soundMode = mode;
+    localStorage.setItem('webtabletop-sound-mode', mode);
+  }
+
+  public getSoundMode() {
+    return this.soundMode;
+  }
 
   private initCtx() {
     if (!this.ctx) {
@@ -12,6 +29,7 @@ class SoundManager {
 
   // Play a quick wood card slap sound
   public playCardPlace() {
+    if (this.soundMode !== 'on' && this.soundMode !== 'game-only') return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -39,6 +57,7 @@ class SoundManager {
 
   // Play a card slide/draw sound
   public playCardDraw() {
+    if (this.soundMode !== 'on' && this.soundMode !== 'game-only') return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -66,6 +85,7 @@ class SoundManager {
 
   // Play a card flip tick/flutter
   public playCardFlip() {
+    if (this.soundMode !== 'on' && this.soundMode !== 'game-only') return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -93,6 +113,7 @@ class SoundManager {
 
   // Play a warm arpeggio chime fanfare for calling UNO!
   public playUnoFanfare() {
+    if (this.soundMode !== 'on' && this.soundMode !== 'game-only') return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -124,6 +145,7 @@ class SoundManager {
 
   // Play a low error/rejection warning buzz
   public playErrorBuzz() {
+    if (this.soundMode !== 'on' && this.soundMode !== 'game-only') return;
     try {
       this.initCtx();
       if (!this.ctx) return;
@@ -144,6 +166,20 @@ class SoundManager {
 
       osc.start(now);
       osc.stop(now + 0.23);
+    } catch (e) {
+      console.warn('Audio play failed:', e);
+    }
+  }
+
+  // Play a meme sound ogg file statically hosted on backend
+  public playMemeSound(filename: string) {
+    if (this.soundMode !== 'on' && this.soundMode !== 'meme-only') return;
+    try {
+      const audio = new Audio(`http://localhost:3000/meme/${encodeURIComponent(filename)}`);
+      audio.volume = 1.0;
+      audio.play().catch(err => {
+        console.warn('Meme sound play failed:', err);
+      });
     } catch (e) {
       console.warn('Audio play failed:', e);
     }

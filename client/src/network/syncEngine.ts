@@ -31,6 +31,7 @@ export class SyncEngine {
   private onError?: (msg: string) => void;
   private onChatReceived?: (chat: any) => void;
   public onPoseReceived?: (pose: PlayerPose) => void;
+  public onMemeReceived?: (playerId: string, memeId: string) => void;
 
   constructor(
     initialState: EngineState,
@@ -103,6 +104,15 @@ export class SyncEngine {
           this.webrtcManager.broadcastExcept(senderId, data);
         }
         this.onPoseReceived?.(data.pose as PlayerPose);
+        return;
+      }
+
+      if (data.type === 'PLAY_MEME') {
+        if (this.isHost) {
+          // Host re-broadcasts to all other peers
+          this.webrtcManager.broadcastExcept(senderId, data);
+        }
+        this.onMemeReceived?.(data.playerId, data.memeId);
         return;
       }
 
@@ -340,6 +350,15 @@ export class SyncEngine {
       this.webrtcManager.broadcast({ type: 'POSE', pose });
     } catch (_) {
       // Pose data is fire-and-forget; suppress errors
+    }
+  }
+
+  public sendMeme(memeId: string) {
+    try {
+      this.webrtcManager.broadcast({ type: 'PLAY_MEME', playerId: this.playerId, memeId });
+      this.onMemeReceived?.(this.playerId, memeId);
+    } catch (_) {
+      // Ephemeral meme triggers are best-effort
     }
   }
 
