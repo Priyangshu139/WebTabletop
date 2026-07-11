@@ -17,6 +17,7 @@ export interface LobbySession {
 
 // Global in-memory lobby store shared between REST routes and WebSocket signaling
 export const lobbies: Record<string, LobbySession> = {};
+const lobbyCleanups: Record<string, NodeJS.Timeout> = {};
 
 export function setupSignaling(server: Server) {
   const wss = new WebSocketServer({ server });
@@ -48,6 +49,11 @@ export function setupSignaling(server: Server) {
             player.ws = ws;
             clientLobbyId = lobbyId;
             clientPlayerId = playerId;
+
+            if (lobbyCleanups[lobbyId]) {
+              clearTimeout(lobbyCleanups[lobbyId]);
+              delete lobbyCleanups[lobbyId];
+            }
 
             // Broadcast connection update to other peers
             Object.values(lobby.players).forEach(p => {
@@ -137,6 +143,19 @@ export function setupSignaling(server: Server) {
             }
           }
         }, 5000);
+      }
+
+      // Inactivity cleanup if all players disconnected
+      const activeCount = Object.values(lobby.players).filter(p => p.ws !== undefined).length;
+      if (activeCount === 0) {
+        if (lobbyCleanups[clientLobbyId]) {
+          clearTimeout(lobbyCleanups[clientLobbyId]);
+        }
+        lobbyCleanups[clientLobbyId] = setTimeout(() => {
+          delete lobbies[clientLobbyId!];
+          delete lobbyCleanups[clientLobbyId!];
+          console.log(`Lobby ${clientLobbyId} deleted due to inactivity.`);
+        }, 30 * 60 * 1000); // 30 minutes
       }
     });
   });
