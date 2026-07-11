@@ -34,6 +34,23 @@ export class SyncEngine {
   public onPoseReceived?: (pose: PlayerPose) => void;
   public onMemeReceived?: (playerId: string, memeId: string) => void;
   private targetHostId: string;
+  private heartbeatInterval: any = null;
+
+  private startHeartbeat() {
+    this.stopHeartbeat();
+    if (this.isHost) {
+      this.heartbeatInterval = setInterval(() => {
+        this.signalingClient.sendHeartbeat();
+      }, 5000);
+    }
+  }
+
+  private stopHeartbeat() {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+  }
 
   constructor(
     initialState: EngineState,
@@ -78,6 +95,7 @@ export class SyncEngine {
       // Authoritative host saves initial state representation
       await this.saveStateToBackend();
     }
+    this.startHeartbeat();
   }
 
   private setupListeners() {
@@ -92,10 +110,12 @@ export class SyncEngine {
         this.setupListeners(); // re-bind listeners
         this.onStateUpdate(this.state);
         await this.saveStateToBackend(); // Backup state immediately under the new host credentials
+        this.startHeartbeat();
       } else {
         // We are still a Peer; initiate connection to the new Host
         this.webrtcManager = new WebRTCManager(false, this.signalingClient);
         this.setupListeners();
+        this.stopHeartbeat();
         await this.webrtcManager.initiatePeerConnection(newHostId);
       }
     };
@@ -397,6 +417,7 @@ export class SyncEngine {
   }
 
   public close() {
+    this.stopHeartbeat();
     this.webrtcManager.close();
     this.signalingClient.close();
   }

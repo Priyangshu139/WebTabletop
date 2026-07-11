@@ -79,6 +79,14 @@ export class SignalingClient {
     }));
   }
 
+  public sendHeartbeat(): void {
+    if (this.ws && this.ws.readyState === WebSocket.OPEN) {
+      this.ws.send(JSON.stringify({
+        type: 'HEARTBEAT'
+      }));
+    }
+  }
+
   public close(): void {
     if (this.ws) {
       this.ws.close();
