@@ -983,6 +983,9 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
       <div id="camera-viewport" style="width: 100%; height: 100%; overflow: hidden; background: #090d16; position: relative;">
         <div id="three-canvas-container" style="width: 100%; height: 100%;"></div>
         
+        <!-- Radial quick-access meme menu overlay -->
+        <div id="radial-meme-menu" style="display: none; position: absolute; width: 180px; height: 180px; border-radius: 50%; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); border: 1.5px solid rgba(255,255,255,0.15); box-shadow: 0 10px 40px rgba(0,0,0,0.6); z-index: 10000; pointer-events: none;"></div>
+        
         <!-- Premium HUD Overlay -->
         <div id="uno-game-hud" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 1000; font-family: 'Outfit', 'Inter', sans-serif;">
           
@@ -1281,6 +1284,140 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
       modal.querySelector('#close-settings-modal')?.addEventListener('click', close);
       modal.querySelector('#btn-save-settings-modal')?.addEventListener('click', close);
     });
+
+    // Sound Mode Toggle setup
+    const muteBtn = document.getElementById('uno-btn-mute');
+    const updateMuteIcon = () => {
+      if (!muteBtn) return;
+      const mode = soundManager.getSoundMode();
+      const icons: Record<string, string> = { on: '🔊', 'game-only': '🎮', 'meme-only': '🗣️', off: '🔇' };
+      muteBtn.innerText = icons[mode] || '🔊';
+    };
+
+    updateMuteIcon();
+
+    muteBtn?.addEventListener('click', () => {
+      const current = soundManager.getSoundMode();
+      const modes: ('on' | 'game-only' | 'meme-only' | 'off')[] = ['on', 'game-only', 'meme-only', 'off'];
+      const next = modes[(modes.indexOf(current) + 1) % modes.length];
+      soundManager.setSoundMode(next);
+      updateMuteIcon();
+      triggerFloatingAlert(`Sound Mode: ${next.toUpperCase().replace('-', ' ')}`);
+    });
+
+    // Radial Meme Wheel Trigger & Controller
+    let radialActive = false;
+    let radialCenterX = 0;
+    let radialCenterY = 0;
+    let selectedSector = -1;
+    let touchHoldTimeout: any = null;
+
+    const radialEl = document.getElementById('radial-meme-menu');
+
+    const renderRadialSectors = () => {
+      if (!radialEl) return;
+      const wheel = JSON.parse(localStorage.getItem('webtabletop-meme-wheel') || '[]');
+      let html = '';
+      
+      for (let i = 0; i < 6; i++) {
+        const mid = wheel[i];
+        const meme = MEME_DATABASE.find(m => m.id === mid) || MEME_DATABASE[i];
+        if (!meme) continue;
+        const isHighlighted = i === selectedSector;
+        const angle = (i * 60 - 90) * (Math.PI / 180); // Rotate by -90 deg so slot 0 is top-center
+        const x = Math.cos(angle) * 55 + 90;
+        const y = Math.sin(angle) * 55 + 90;
+
+        html += `
+          <div style="position: absolute; left: ${x - 18}px; top: ${y - 18}px; width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; font-size: 22px; transition: transform 0.15s; transform: scale(${isHighlighted ? '1.4' : '1.0'}); text-shadow: ${isHighlighted ? '0 0 10px #3b82f6' : 'none'};" title="${meme.name.replace(/-/g, ' ')}">
+            ${meme.emoji}
+          </div>
+        `;
+      }
+
+      radialEl.innerHTML = html;
+    };
+
+    const openRadial = (x: number, y: number) => {
+      if (!radialEl) return;
+      radialActive = true;
+      radialCenterX = x;
+      radialCenterY = y;
+      radialEl.style.left = `${x - 90}px`;
+      radialEl.style.top = `${y - 90}px`;
+      radialEl.style.display = 'block';
+      renderRadialSectors();
+    };
+
+    const closeRadial = () => {
+      if (!radialEl || !radialActive) return;
+      if (selectedSector !== -1) {
+        const wheel = JSON.parse(localStorage.getItem('webtabletop-meme-wheel') || '[]');
+        const mid = wheel[selectedSector];
+        if (mid && syncEngine) {
+          syncEngine.sendMeme(mid);
+        }
+      }
+      radialActive = false;
+      radialEl.style.display = 'none';
+      selectedSector = -1;
+    };
+
+    // PC Right-click handling on right side of screen
+    window.addEventListener('contextmenu', (e) => {
+      if (e.clientX >= window.innerWidth / 2) {
+        e.preventDefault();
+        openRadial(e.clientX, e.clientY);
+      }
+    });
+
+    window.addEventListener('mouseup', (e) => {
+      if (e.button === 2) { // right click release
+        closeRadial();
+      }
+    });
+
+    // Mobile Touch Hold handling on right side of screen
+    window.addEventListener('touchstart', (e) => {
+      if (e.touches[0] && e.touches[0].clientX >= window.innerWidth / 2) {
+        const touch = e.touches[0];
+        touchHoldTimeout = setTimeout(() => {
+          openRadial(touch.clientX, touch.clientY);
+        }, 500); // 500ms hold
+      }
+    }, { passive: true });
+
+    window.addEventListener('touchend', () => {
+      if (touchHoldTimeout) clearTimeout(touchHoldTimeout);
+      closeRadial();
+    });
+
+    const handleDragMove = (clientX: number, clientY: number) => {
+      if (!radialActive) return;
+      const dx = clientX - radialCenterX;
+      const dy = clientY - radialCenterY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist < 20) {
+        selectedSector = -1; // Deadzone
+      } else {
+        let angle = Math.atan2(dy, dx); // -PI to PI
+        angle += Math.PI / 2; // Offset by 90 deg so top-center is 0
+        if (angle < 0) angle += Math.PI * 2; // 0 to 2PI
+        selectedSector = Math.floor((angle / (Math.PI * 2)) * 6) % 6;
+      }
+      renderRadialSectors();
+    };
+
+    window.addEventListener('mousemove', (e) => {
+      if (radialActive) handleDragMove(e.clientX, e.clientY);
+    });
+
+    window.addEventListener('touchmove', (e) => {
+      if (radialActive && e.touches[0]) {
+        handleDragMove(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    }, { passive: true });
   } else {
     // 3-Column Standard Layout for Ludo/Monopoly
     mainContent.style.display = 'grid';
