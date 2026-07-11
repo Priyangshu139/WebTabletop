@@ -1517,7 +1517,10 @@ export class ThreeRenderer {
     // Discard Pile card (lying flat, face up)
     const topDiscard = state.moduleState.unoDiscardPile?.[state.moduleState.unoDiscardPile.length - 1];
     if (topDiscard) {
-      const discardMesh = this.createUnoCardMesh(topDiscard.color, String(topDiscard.value), true);
+      const displayColor = (topDiscard.color === 'wild' && state.moduleState.activeColor)
+        ? state.moduleState.activeColor
+        : topDiscard.color;
+      const discardMesh = this.createUnoCardMesh(displayColor, String(topDiscard.value), true);
       discardMesh.rotation.x = -Math.PI / 2;
       discardMesh.rotation.z = 0.25; // slight organic rotation angle
       discardMesh.position.set(0.7, 0.01, 0);
