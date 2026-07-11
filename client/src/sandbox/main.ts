@@ -1362,6 +1362,8 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
     };
 
     const openRadial = (x: number, y: number) => {
+      const isChatOpen = document.getElementById('chat-drawer')?.classList.contains('active');
+      if (isChatOpen) return;
       if (!radialEl) return;
       radialActive = true;
       radialCenterX = x;
@@ -1386,11 +1388,16 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
       selectedSector = -1;
     };
 
-    // PC Right-click handling on right side of screen
+    // PC Right-click handling on right side of screen (trigger on mousedown)
+    window.addEventListener('mousedown', (e) => {
+      if (e.button === 2 && e.clientX >= window.innerWidth / 2) {
+        openRadial(e.clientX, e.clientY);
+      }
+    });
+
     window.addEventListener('contextmenu', (e) => {
       if (e.clientX >= window.innerWidth / 2) {
         e.preventDefault();
-        openRadial(e.clientX, e.clientY);
       }
     });
 
