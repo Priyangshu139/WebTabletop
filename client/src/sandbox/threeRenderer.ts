@@ -52,6 +52,9 @@ export class ThreeRenderer {
   private lightMultiplier: number = 1.0;
   private cameraSensitivity: number = 1.0;
 
+  private faceOverrideTimeouts: Map<string, any> = new Map();
+  private originalFaceEmojis: Map<string, string> = new Map();
+
   /** Apply a received remote player pose */
   public applyRemotePose(playerId: string, theta: number, phi: number, mouseX: number, mouseY: number) {
     this.remotePoses.set(playerId, { theta, phi, mouseX, mouseY });
@@ -60,6 +63,59 @@ export class ThreeRenderer {
   /** Expose camera sensitivity adjustment */
   public setCameraSensitivity(val: number) {
     this.cameraSensitivity = val;
+  }
+
+  /** Expose face emoji override */
+  public tempOverrideFaceEmoji(playerId: string, emoji: string) {
+    const avatarGroup = this.avatarsMap.get(playerId);
+    if (!avatarGroup) return;
+
+    const headGroup = avatarGroup.getObjectByName('avatar-head-group') as THREE.Group;
+    if (!headGroup) return;
+
+    // Cancel existing timeout if any
+    const existingTimeout = this.faceOverrideTimeouts.get(playerId);
+    if (existingTimeout) clearTimeout(existingTimeout);
+
+    // Save original emoji if not already overridden
+    if (!this.originalFaceEmojis.has(playerId)) {
+      const orig = this.currentState?.players[playerId]?.emojiFace || '🦊';
+      this.originalFaceEmojis.set(playerId, orig);
+    }
+
+    this.updateAvatarFaceMesh(headGroup, emoji);
+
+    // Set 3s restore timeout
+    const timeout = setTimeout(() => {
+      const orig = this.originalFaceEmojis.get(playerId) || '🦊';
+      this.updateAvatarFaceMesh(headGroup, orig);
+      this.originalFaceEmojis.delete(playerId);
+      this.faceOverrideTimeouts.delete(playerId);
+    }, 3000);
+
+    this.faceOverrideTimeouts.set(playerId, timeout);
+  }
+
+  private updateAvatarFaceMesh(headGroup: THREE.Group, emoji: string) {
+    const existingFace = headGroup.getObjectByName('avatar-face') as THREE.Mesh;
+    if (!existingFace) return;
+
+    const faceCanvas = document.createElement('canvas');
+    faceCanvas.width = 128;
+    faceCanvas.height = 128;
+    const faceCtx = faceCanvas.getContext('2d');
+    if (faceCtx) {
+      faceCtx.font = '118px sans-serif';
+      faceCtx.textAlign = 'center';
+      faceCtx.textBaseline = 'middle';
+      faceCtx.fillText(emoji, 64, 64);
+    }
+    const faceTex = new THREE.CanvasTexture(faceCanvas);
+    if (existingFace.material && (existingFace.material as THREE.MeshBasicMaterial).map) {
+      (existingFace.material as THREE.MeshBasicMaterial).map?.dispose();
+      (existingFace.material as THREE.MeshBasicMaterial).map = faceTex;
+      (existingFace.material as THREE.MeshBasicMaterial).needsUpdate = true;
+    }
   }
 
   /** Dynamically adjust scene light intensity */
@@ -1018,6 +1074,7 @@ export class ThreeRenderer {
           new THREE.PlaneGeometry(0.44, 0.44),
           facePlaneMat
         );
+        facePlane.name = 'avatar-face';
         // Positioned at z = 0.252 relative to headGroup
         facePlane.position.set(0, 0, 0.252);
         headGroup.add(facePlane);
