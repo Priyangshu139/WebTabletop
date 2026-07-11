@@ -731,13 +731,30 @@ async function initializeSync(
   let unoDiscardPile: any[] = [];
   if (activeGame === 'uno-go' && !savedState) {
     const colors = ['red', 'blue', 'green', 'yellow'];
-    const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'SKIP', 'REVERSE', 'DRAW_TWO'];
     let idCounter = 0;
-    colors.forEach(col => {
-      values.forEach(val => {
-        unoDeck.push({ id: `c-${idCounter++}`, color: col, value: val });
+
+    colors.forEach(color => {
+      // Numbered cards: One '0'
+      unoDeck.push({ id: `c-${idCounter++}`, color, value: '0' });
+      // Two of '1' through '9'
+      for (let num = 1; num <= 9; num++) {
+        unoDeck.push({ id: `c-${idCounter++}`, color, value: String(num) });
+        unoDeck.push({ id: `c-${idCounter++}`, color, value: String(num) });
+      }
+
+      // Action cards: Two of Skip, Reverse, Draw Two
+      const actions = ['SKIP', 'REVERSE', 'DRAW_TWO'];
+      actions.forEach(action => {
+        unoDeck.push({ id: `c-${idCounter++}`, color, value: action });
+        unoDeck.push({ id: `c-${idCounter++}`, color, value: action });
       });
     });
+
+    // Wild cards: Four Wild and four Wild Draw Four
+    for (let i = 0; i < 4; i++) {
+      unoDeck.push({ id: `c-${idCounter++}`, color: 'wild', value: 'WILD' });
+      unoDeck.push({ id: `c-${idCounter++}`, color: 'wild', value: 'WILD_DRAW_FOUR' });
+    }
     // Shuffle deck
     unoDeck.sort(() => Math.random() - 0.5);
     // Draw top card to discard
@@ -1120,6 +1137,10 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
 
           <!-- Right-Side HUD Panel: Direction + Top Discard -->
           <div id="uno-hud-right-panel" style="position: absolute; right: 16px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; gap: 12px; align-items: center; pointer-events: auto; z-index: 10;">
+            <div id="uno-hud-active-color" style="background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 14px; text-align: center; min-width: 80px; display: flex; flex-direction: column; align-items: center; gap: 6px;">
+              <div style="font-size: 10px; color: #94a3b8; font-weight: bold;">ACTIVE COLOR</div>
+              <div id="active-color-orb" style="width: 24px; height: 24px; border-radius: 50%; background: #6b7280; box-shadow: 0 0 10px #6b7280; transition: background 0.3s, box-shadow 0.3s;"></div>
+            </div>
             <div id="uno-hud-direction-badge" style="background: rgba(15, 23, 42, 0.9); backdrop-filter: blur(8px); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 10px 14px; text-align: center; min-width: 80px;">
               <div style="font-size: 24px;" id="direction-arrow-icon">➡️</div>
               <div style="font-size: 10px; color: #94a3b8; font-weight: bold; margin-top: 4px;" id="direction-label-text">CLOCKWISE</div>
@@ -1291,6 +1312,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
     });
 
     document.getElementById('btn-call-uno')?.addEventListener('click', () => {
+      syncEngine?.dispatch('CALL_UNO');
       syncEngine?.sendChat("Shouted UNO! 🎴");
       triggerFloatingAlert('You shouted UNO!');
     });
@@ -2200,6 +2222,20 @@ function updateUI(gameState: EngineState) {
       }
     }
 
+    const activeColorOrb = document.getElementById('active-color-orb');
+    if (activeColorOrb) {
+      const topCard = gameState.moduleState.unoDiscardPile?.[gameState.moduleState.unoDiscardPile.length - 1];
+      const activeColor = gameState.moduleState.activeColor || (topCard ? topCard.color : 'wild');
+      let hex = '#6b7280';
+      if (activeColor === 'red') hex = '#ef4444';
+      else if (activeColor === 'blue') hex = '#3b82f6';
+      else if (activeColor === 'green') hex = '#22c55e';
+      else if (activeColor === 'yellow') hex = '#eab308';
+      
+      activeColorOrb.style.background = hex;
+      activeColorOrb.style.boxShadow = `0 0 12px ${hex}`;
+    }
+
     // Populate Roster Count Badges (cleared as they are now rendered purely in 3D above avatars)
     const rosterContainer = document.getElementById('uno-hud-players-roster');
     if (rosterContainer) {
@@ -2209,6 +2245,7 @@ function updateUI(gameState: EngineState) {
     // Update Action Buttons States
     const unoDrawBtn = document.getElementById('btn-draw-card') as HTMLButtonElement;
     const unoPlayBtn = document.getElementById('btn-play-card-hud') as HTMLButtonElement;
+    const callUnoBtn = document.getElementById('btn-call-uno') as HTMLButtonElement;
     if (unoDrawBtn) {
       const isMyTurn = gameState.turn.currentPlayerId === activeSeatId && !isSpectator;
       const isStartPhase = gameState.turn.phase === 'StartTurn' || gameState.turn.phase === 'Move';
@@ -2216,6 +2253,9 @@ function updateUI(gameState: EngineState) {
 
       if (unoPlayBtn) {
         unoPlayBtn.disabled = !isMyTurn;
+      }
+      if (callUnoBtn) {
+        callUnoBtn.disabled = !isMyTurn;
       }
     }
   }
@@ -2378,9 +2418,10 @@ function updateUI(gameState: EngineState) {
               return;
             }
 
-            // Check playability (Wild cards match any color)
+            // Check playability (Wild cards match any color, or activeColor)
             const topCard = gameState.moduleState.unoDiscardPile?.[gameState.moduleState.unoDiscardPile.length - 1];
-            if (topCard && selectedCard.color !== 'wild' && topCard.color !== 'wild' && selectedCard.color !== topCard.color && selectedCard.value !== topCard.value) {
+            const requiredColor = gameState.moduleState.activeColor || (topCard ? topCard.color : 'wild');
+            if (topCard && selectedCard.color !== 'wild' && requiredColor !== 'wild' && selectedCard.color !== requiredColor && selectedCard.value !== topCard.value) {
               // Unplayable — shake and buzz
               soundManager.playErrorBuzz();
               cardEl.style.animation = 'cardShakeReject 0.5s ease';
@@ -2389,7 +2430,13 @@ function updateUI(gameState: EngineState) {
               return;
             }
 
-            syncEngine?.dispatch('PLAY_CARD', { card: selectedCard });
+            if (selectedCard.color === 'wild') {
+              showColorSelectorModal(selectedCard, (chosenColor) => {
+                syncEngine?.dispatch('PLAY_CARD', { card: selectedCard, chosenColor });
+              });
+            } else {
+              syncEngine?.dispatch('PLAY_CARD', { card: selectedCard });
+            }
           });
         });
       }
@@ -3346,6 +3393,51 @@ function triggerFloatingAlert(text: string) {
   setTimeout(() => {
     badge.remove();
   }, 2000);
+}
+
+function showColorSelectorModal(_card: any, callback: (color: string) => void) {
+  const modal = document.createElement('div');
+  modal.id = 'color-selector-modal';
+  modal.className = 'modal-overlay';
+  modal.style.display = 'flex';
+  modal.style.alignItems = 'center';
+  modal.style.justifyContent = 'center';
+  modal.style.position = 'fixed';
+  modal.style.top = '0';
+  modal.style.left = '0';
+  modal.style.width = '100vw';
+  modal.style.height = '100vh';
+  modal.style.backgroundColor = 'rgba(15, 23, 42, 0.85)';
+  modal.style.backdropFilter = 'blur(10px)';
+  modal.style.zIndex = '200000';
+
+  modal.innerHTML = `
+    <div style="background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 24px; text-align: center; max-width: 320px; width: 90%; box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);">
+      <h2 style="margin-top: 0; margin-bottom: 16px; font-size: 18px; font-weight: bold; color: white;">Select Wild Color</h2>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; aspect-ratio: 1; width: 220px; margin: 0 auto;">
+        <button class="color-quadrant" data-color="red" style="background: #ef4444; border: none; border-top-left-radius: 110px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.25);"></button>
+        <button class="color-quadrant" data-color="blue" style="background: #3b82f6; border: none; border-top-right-radius: 110px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.25);"></button>
+        <button class="color-quadrant" data-color="green" style="background: #10b981; border: none; border-bottom-left-radius: 110px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.25);"></button>
+        <button class="color-quadrant" data-color="yellow" style="background: #eab308; border: none; border-bottom-right-radius: 110px; cursor: pointer; transition: transform 0.2s; box-shadow: 0 4px 6px rgba(0,0,0,0.25);"></button>
+      </div>
+    </div>
+  `;
+
+  document.body.appendChild(modal);
+
+  modal.querySelectorAll('.color-quadrant').forEach(btn => {
+    btn.addEventListener('mouseover', () => {
+      (btn as HTMLElement).style.transform = 'scale(1.08)';
+    });
+    btn.addEventListener('mouseout', () => {
+      (btn as HTMLElement).style.transform = 'scale(1)';
+    });
+    btn.addEventListener('click', () => {
+      const color = (btn as HTMLElement).dataset.color!;
+      document.body.removeChild(modal);
+      callback(color);
+    });
+  });
 }
 
 // Initial matchmaking render
