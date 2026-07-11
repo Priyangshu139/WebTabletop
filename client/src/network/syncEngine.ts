@@ -169,7 +169,7 @@ export class SyncEngine {
             color: data.traits?.color || '#3b82f6',
             emojiFace: data.traits?.emojiFace || '🐼',
             skinTone: data.traits?.skinTone || 'medium',
-            isSpectator: !!data.traits?.isSpectator
+            isSpectator: !!data.traits?.isSpectator || !!this.state.lobbyStarted
           };
 
           // Draw starting hand if Uno and not a spectator
