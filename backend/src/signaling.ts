@@ -13,6 +13,7 @@ export interface LobbySession {
   hostId: string;
   players: Record<string, PlayerSession>;
   stateBackup?: any;
+  heartbeatTimeout?: NodeJS.Timeout;
 }
 
 // Global in-memory lobby store shared between REST routes and WebSocket signaling
@@ -55,6 +56,11 @@ export function setupSignaling(server: Server) {
               delete lobbyCleanups[lobbyId];
             }
 
+            // Start/reset heartbeat if this rejoining/connecting player is the host
+            if (lobby.hostId === playerId) {
+              resetHostHeartbeatTimeout(lobby);
+            }
+
             // Broadcast connection update to other peers
             Object.values(lobby.players).forEach(p => {
               if (p.playerId !== playerId && p.ws && p.ws.readyState === WebSocket.OPEN) {
@@ -84,6 +90,15 @@ export function setupSignaling(server: Server) {
             }
             break;
           }
+
+          case 'HEARTBEAT': {
+            if (!clientLobbyId || !clientPlayerId) return;
+            const lobby = lobbies[clientLobbyId];
+            if (!lobby || lobby.hostId !== clientPlayerId) return;
+
+            resetHostHeartbeatTimeout(lobby);
+            break;
+          }
         }
       } catch (err) {
         console.error('Signaling msg parse error:', err);
@@ -109,6 +124,14 @@ export function setupSignaling(server: Server) {
           }));
         }
       });
+
+      // Clear host heartbeat timer if host disconnected
+      if (lobby.hostId === clientPlayerId) {
+        if (lobby.heartbeatTimeout) {
+          clearTimeout(lobby.heartbeatTimeout);
+          lobby.heartbeatTimeout = undefined;
+        }
+      }
 
       // Host disconnect handling
       if (lobby.hostId === clientPlayerId) {
@@ -159,4 +182,45 @@ export function setupSignaling(server: Server) {
       }
     });
   });
+}
+
+function resetHostHeartbeatTimeout(lobby: LobbySession) {
+  if (lobby.heartbeatTimeout) {
+    clearTimeout(lobby.heartbeatTimeout);
+  }
+  lobby.heartbeatTimeout = setTimeout(() => {
+    triggerHostReelection(lobby);
+  }, 15000); // 15 seconds timeout
+}
+
+function triggerHostReelection(lobby: LobbySession) {
+  const activePlayerIds = Object.keys(lobby.players).filter(pid => {
+    return pid !== lobby.hostId && lobby.players[pid].ws !== undefined && lobby.players[pid].ws!.readyState === 1; // 1 = OPEN
+  });
+
+  if (activePlayerIds.length > 0) {
+    activePlayerIds.sort();
+    const newHostId = activePlayerIds[0];
+    const oldHostId = lobby.hostId;
+    lobby.hostId = newHostId;
+
+    console.log(`Lobby ${lobby.lobbyId}: Host ${oldHostId} heartbeat timed out. Migrating to ${newHostId}.`);
+
+    // Broadcast host migration to all remaining active peers
+    Object.values(lobby.players).forEach(p => {
+      if (p.ws && p.ws.readyState === 1) {
+        p.ws.send(JSON.stringify({
+          type: 'HOST_MIGRATE',
+          payload: { newHostId }
+        }));
+      }
+    });
+
+    resetHostHeartbeatTimeout(lobby);
+  } else {
+    if (lobby.heartbeatTimeout) {
+      clearTimeout(lobby.heartbeatTimeout);
+      lobby.heartbeatTimeout = undefined;
+    }
+  }
 }
