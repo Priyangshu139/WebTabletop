@@ -81,13 +81,16 @@ app.post('/api/lobby/join', (req, res) => {
   const nextId = `P${existingPlayerIds.length + 1}`;
   const secretHash = generateSecretHash();
 
+  const gameStarted = lobby.stateBackup && lobby.stateBackup.lobbyStarted === true;
+  const isSpectator = !!traits?.isSpectator || gameStarted;
+
   lobby.players[nextId] = {
     playerId: nextId,
     secretHash,
-    traits: traits || {}
+    traits: { ...(traits || {}), isSpectator }
   };
 
-  res.json({ lobbyId, playerId: nextId, secretHash });
+  res.json({ lobbyId, playerId: nextId, secretHash, isSpectator });
 });
 
 // Authoritative Host State Backups
