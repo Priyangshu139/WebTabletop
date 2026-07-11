@@ -19,7 +19,8 @@ export function validateCommand(
     command.type === 'SELECT_LOBBY_GAME' ||
     command.type === 'UPDATE_LOBBY_SETTINGS' ||
     command.type === 'CHANGE_PAWN_COLOR' ||
-    command.type === 'START_GAME'
+    command.type === 'START_GAME' ||
+    command.type === 'QUIT_MATCH'
   ) {
     if (command.type !== 'CHANGE_PAWN_COLOR' && !player?.isHost) {
       throw new Error('Only the lobby Host can modify settings.');
@@ -46,6 +47,13 @@ export function validateCommand(
         type: 'PAWN_COLOR_CHANGED',
         playerId: command.playerId,
         payload: { color: command.payload.color },
+        timestamp: Date.now()
+      }];
+    }
+    if (command.type === 'QUIT_MATCH') {
+      return [{
+        type: 'MATCH_QUIT',
+        playerId: command.playerId,
         timestamp: Date.now()
       }];
     }

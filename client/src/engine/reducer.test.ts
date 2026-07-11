@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { applyEvent } from './reducer';
-import { EngineState, EngineEvent } from './types';
+import { EngineState, EngineEvent, EngineCommand } from './types';
+import { validateCommand } from './rules';
 
 const initialTestState: EngineState = {
   seed: 'test-seed',
@@ -148,6 +149,71 @@ describe('Pure State Reducer', () => {
     state = applyEvent(state, joinEvent2);
     expect(state.players['P2'].color).not.toBe('#ef4444');
     expect(state.players['P2'].color).toBe('#3b82f6');
+  });
+
+  it('verifies spectator joining resolves color conflicts with existing players and other spectators', () => {
+    const joinP1: EngineEvent = {
+      type: 'PLAYER_JOINED',
+      playerId: 'P1',
+      payload: { color: '#ef4444', isSpectator: false },
+      timestamp: 5001
+    };
+    let state = applyEvent(initialTestState, joinP1);
+
+    const joinP2: EngineEvent = {
+      type: 'PLAYER_JOINED',
+      playerId: 'P2',
+      payload: { color: '#ef4444', isSpectator: true },
+      timestamp: 5002
+    };
+    state = applyEvent(state, joinP2);
+    expect(state.players['P2'].color).not.toBe('#ef4444');
+    expect(state.players['P2'].color).toBe('#3b82f6');
+
+    const joinP3: EngineEvent = {
+      type: 'PLAYER_JOINED',
+      playerId: 'P3',
+      payload: { color: '#3b82f6', isSpectator: true },
+      timestamp: 5003
+    };
+    state = applyEvent(state, joinP3);
+    expect(state.players['P3'].color).not.toBe('#3b82f6');
+    expect(state.players['P3'].color).toBe('#22c55e');
+  });
+
+  it('verifies QUIT_MATCH command validation and MATCH_QUIT state resetting', () => {
+    let state = applyEvent(initialTestState, {
+      type: 'LOBBY_GAME_SELECTED',
+      playerId: 'P1',
+      payload: { game: 'monopoly-go' },
+      timestamp: 6001
+    });
+    state = applyEvent(state, {
+      type: 'GAME_STARTED',
+      playerId: 'P1',
+      timestamp: 6002
+    });
+    expect(state.lobbyStarted).toBe(true);
+
+    const nonHostCmd: EngineCommand = {
+      type: 'QUIT_MATCH',
+      playerId: 'P2'
+    };
+    expect(() => validateCommand(state, nonHostCmd)).toThrow('Only the lobby Host can modify settings.');
+
+    const hostCmd: EngineCommand = {
+      type: 'QUIT_MATCH',
+      playerId: 'P1'
+    };
+    const events = validateCommand(state, hostCmd);
+    expect(events.length).toBe(1);
+    expect(events[0].type).toBe('MATCH_QUIT');
+
+    const resultState = applyEvent(state, events[0]);
+    expect(resultState.lobbyStarted).toBe(false);
+    expect(resultState.turn.phase).toBe('StartTurn');
+    expect(resultState.moduleState.playerPositions['P1']).toBe(0);
+    expect(resultState.players['P1'].money).toBe(1500);
   });
 
   it('verifies CHAT_PINNED and SPECTATOR_ROLE_TOGGLED updates state correctly', () => {

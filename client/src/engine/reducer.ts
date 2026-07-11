@@ -161,22 +161,20 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       const isSpec = !!event.payload.isSpectator;
       
       let baseColor = event.payload.color || '#3b82f6';
-      if (!isSpec) {
-        const existingColors = Object.values(nextState.players)
-          .filter(p => p.id !== newPid && !p.isSpectator)
-          .map(p => p.color.toLowerCase());
+      const existingColors = Object.values(nextState.players)
+        .filter(p => p.id !== newPid)
+        .map(p => p.color.toLowerCase());
 
-        const distinctColors = [
-          '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
-          '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
-        ];
+      const distinctColors = [
+        '#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7',
+        '#f97316', '#ec4899', '#14b8a6', '#06b6d4', '#f43f5e'
+      ];
 
-        const matchColor = baseColor.toLowerCase();
-        if (existingColors.includes(matchColor)) {
-          const freeColor = distinctColors.find(c => !existingColors.includes(c.toLowerCase()));
-          if (freeColor) {
-            baseColor = freeColor;
-          }
+      const matchColor = baseColor.toLowerCase();
+      if (existingColors.includes(matchColor)) {
+        const freeColor = distinctColors.find(c => !existingColors.includes(c.toLowerCase()));
+        if (freeColor) {
+          baseColor = freeColor;
         }
       }
 
@@ -194,6 +192,32 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
         nextState.moduleState.playerPositions[newPid] = 0;
       }
       nextState.turnStartedAt = Date.now();
+      break;
+    }
+
+    case 'MATCH_QUIT': {
+      nextState.lobbyStarted = false;
+      nextState.turn = {
+        currentPlayerId: 'P1',
+        phase: 'StartTurn'
+      };
+      Object.keys(nextState.players).forEach(pid => {
+        const p = nextState.players[pid];
+        p.money = p.isSpectator ? undefined : (nextState.selectedGame === 'monopoly-go' ? 1500 : undefined);
+        p.hand = undefined;
+      });
+      nextState.moduleState = {
+        playerPositions: {},
+        propertiesOwned: nextState.selectedGame === 'monopoly-go' ? {} : undefined,
+        unoDeck: undefined,
+        unoDiscardPile: undefined
+      };
+      Object.keys(nextState.players).forEach(pid => {
+        const p = nextState.players[pid];
+        if (!p.isSpectator) {
+          nextState.moduleState.playerPositions[pid] = 0;
+        }
+      });
       break;
     }
 
