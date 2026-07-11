@@ -1037,6 +1037,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
 
           <!-- Top Right: Quick Actions Buttons -->
           <div id="uno-hud-quick-actions" style="position: absolute; top: 20px; right: 20px; display: flex; gap: 8px; pointer-events: auto;">
+            <button class="action-btn" id="uno-btn-fullscreen" style="padding: 10px; margin: 0; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: white;">🖥️</button>
             <button class="action-btn" id="uno-btn-mute" style="padding: 10px; margin: 0; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: white;">🔊</button>
             <button class="action-btn" id="uno-btn-settings" style="padding: 10px; margin: 0; background: rgba(15, 23, 42, 0.85); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: white;">⚙️</button>
             <button class="action-btn" id="btn-exit-game" style="padding: 10px; margin: 0; background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 8px; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; color: #ef4444;">🚪</button>
@@ -1244,6 +1245,7 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
 
       const currentMultiplier = threeRenderer ? (threeRenderer as any).lightMultiplier : 1.0;
       const currentSensitivity = threeRenderer ? (threeRenderer as any).cameraSensitivity : 1.0;
+      const currentWarmth = threeRenderer ? (threeRenderer as any).lightWarmth : 1.0;
 
       modal.innerHTML = `
         <div style="background: rgba(30, 41, 59, 0.95); border: 1px solid rgba(255,255,255,0.1); border-radius: 24px; padding: 24px; width: 300px; box-shadow: 0 20px 50px rgba(0,0,0,0.6); display: flex; flex-direction: column; gap: 20px; pointer-events: auto;">
@@ -1260,6 +1262,16 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
             </div>
             <input type="range" id="light-intensity-slider" min="0.5" max="3.0" step="0.1" value="${currentMultiplier}" style="width: 100%; accent-color: #3b82f6; cursor: pointer;">
             <div style="font-size: 10px; color: #64748b; line-height: 1.4;">Adjust light intensity for better visibility on mobile screens.</div>
+          </div>
+
+          <!-- Light Warmth Slider -->
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+              <label style="font-size: 13px; font-weight: bold; color: #cbd5e1;">Light Warmth</label>
+              <span id="warmth-val-label" style="font-size: 12px; font-family: monospace; color: #f59e0b; font-weight: 800;">${currentWarmth.toFixed(1)}x</span>
+            </div>
+            <input type="range" id="light-warmth-slider" min="0.0" max="2.0" step="0.1" value="${currentWarmth}" style="width: 100%; accent-color: #f59e0b; cursor: pointer;">
+            <div style="font-size: 10px; color: #64748b; line-height: 1.4;">Shift lighting tone from cool blue (0x) to warm orange (2x).</div>
           </div>
 
           <!-- Camera Sensitivity Slider -->
@@ -1289,6 +1301,17 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
         }
       });
 
+      const warmthSlider = modal.querySelector('#light-warmth-slider') as HTMLInputElement;
+      const warmthLabel = modal.querySelector('#warmth-val-label') as HTMLSpanElement;
+
+      warmthSlider.addEventListener('input', () => {
+        const val = parseFloat(warmthSlider.value);
+        warmthLabel.innerText = `${val.toFixed(1)}x`;
+        if (threeRenderer) {
+          threeRenderer.setLightWarmth(val);
+        }
+      });
+
       const sensSlider = modal.querySelector('#cam-sensitivity-slider') as HTMLInputElement;
       const sensLabel = modal.querySelector('#sens-val-label') as HTMLSpanElement;
       
@@ -1307,6 +1330,27 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
       modal.querySelector('#close-settings-modal')?.addEventListener('click', close);
       modal.querySelector('#btn-save-settings-modal')?.addEventListener('click', close);
     });
+
+    // Fullscreen Toggle setup
+    const fsBtn = document.getElementById('uno-btn-fullscreen');
+    const updateFsIcon = () => {
+      if (!fsBtn) return;
+      fsBtn.innerText = document.fullscreenElement ? '📺' : '🖥️';
+    };
+    
+    fsBtn?.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(err => {
+          console.error(`Fullscreen request failed: ${err.message}`);
+        });
+      } else {
+        document.exitFullscreen().catch(err => {
+          console.error(`Fullscreen exit failed: ${err.message}`);
+        });
+      }
+    });
+
+    document.addEventListener('fullscreenchange', updateFsIcon);
 
     // Sound Mode Toggle setup
     const muteBtn = document.getElementById('uno-btn-mute');

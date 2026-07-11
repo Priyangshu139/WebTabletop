@@ -128,6 +128,36 @@ export class ThreeRenderer {
     if (this.lampLight2) this.lampLight2.intensity = 3.5 * multiplier;
   }
 
+  private shiftColorWarmth(baseHex: number, warmth: number): THREE.Color {
+    const color = new THREE.Color(baseHex);
+    if (warmth > 1.0) {
+      // Make warmer: boost R and G, reduce B
+      const factor = warmth - 1.0;
+      color.r = Math.min(1.0, color.r * (1.0 + factor * 0.25));
+      color.g = Math.min(1.0, color.g * (1.0 + factor * 0.08));
+      color.b = Math.max(0.0, color.b * (1.0 - factor * 0.3));
+    } else if (warmth < 1.0) {
+      // Make cooler: reduce R and G, boost B
+      const factor = 1.0 - warmth;
+      color.r = Math.max(0.0, color.r * (1.0 - factor * 0.3));
+      color.g = Math.max(0.0, color.g * (1.0 - factor * 0.1));
+      color.b = Math.min(1.0, color.b * (1.0 + factor * 0.25));
+    }
+    return color;
+  }
+
+  private lightWarmth: number = 1.0;
+
+  /** Dynamically adjust scene light warmth */
+  public setLightWarmth(warmth: number) {
+    this.lightWarmth = warmth;
+    if (this.ambientLight) this.ambientLight.color.copy(this.shiftColorWarmth(0x4b5563, warmth));
+    if (this.dirLight) this.dirLight.color.copy(this.shiftColorWarmth(0xffffff, warmth));
+    if (this.spotLight) this.spotLight.color.copy(this.shiftColorWarmth(0xffedd5, warmth));
+    if (this.lampLight) this.lampLight.color.copy(this.shiftColorWarmth(0xfff7ed, warmth));
+    if (this.lampLight2) this.lampLight2.color.copy(this.shiftColorWarmth(0xfff7ed, warmth));
+  }
+
   constructor(container: HTMLDivElement, activePlayerId: string) {
     this.container = container;
     this.activePlayerId = activePlayerId;
@@ -470,6 +500,7 @@ export class ThreeRenderer {
     lampGroup.add(shadeMesh);
 
     this.lampLight = new THREE.PointLight(0xfff7ed, 3.5 * this.lightMultiplier, 12);
+    this.lampLight.color.copy(this.shiftColorWarmth(0xfff7ed, this.lightWarmth));
     this.lampLight.position.set(-9.0, 1.5, -9.0);
     this.lampLight.castShadow = true;
     this.lampLight.shadow.bias = -0.002;
@@ -506,6 +537,7 @@ export class ThreeRenderer {
     lampGroup2.add(shadeMesh2);
 
     this.lampLight2 = new THREE.PointLight(0xfff7ed, 3.5 * this.lightMultiplier, 12);
+    this.lampLight2.color.copy(this.shiftColorWarmth(0xfff7ed, this.lightWarmth));
     this.lampLight2.position.set(9.0, 1.5, 9.0);
     this.lampLight2.castShadow = true;
     this.lampLight2.shadow.bias = -0.002;
