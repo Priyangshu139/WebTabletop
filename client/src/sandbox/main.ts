@@ -936,6 +936,13 @@ async function initializeSync(
     await syncEngine.start();
     updateUI(syncEngine.state);
 
+    // Host pre-fetches all meme sounds from server into local cache
+    // Peers receive cached audio from host via WebRTC (no server hits)
+    if (isHost) {
+      const allFilenames = MEME_DATABASE.map(m => m.filename);
+      soundManager.preloadFromServer(REST_URL, allFilenames);
+    }
+
     // Wire up live pose broadcasting at ~10 Hz (every 100ms)
     setInterval(() => {
       if (syncEngine && threeRenderer) {

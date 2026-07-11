@@ -4,6 +4,7 @@ import { validateCommand } from '../engine/rules';
 import { applyEvent } from '../engine/reducer';
 import { SignalingClient } from './signalingClient';
 import { WebRTCManager } from './webrtcManager';
+import { soundManager } from '../sandbox/soundManager';
 
 export interface PlayerPose {
   playerId: string;
@@ -116,6 +117,12 @@ export class SyncEngine {
         return;
       }
 
+      // Peer receives audio cache chunk from host
+      if (data.type === 'MEME_AUDIO_CACHE') {
+        soundManager.cacheFromBase64(data.filename, data.data);
+        return;
+      }
+
       console.log(`[WebRTC] Received message from ${senderId} of type ${data.type}`);
       if (data.type === 'COMMAND') {
         if (this.isHost) {
@@ -200,6 +207,9 @@ export class SyncEngine {
             state: this.state,
             chatHistory: this.chatHistory
           });
+
+          // Background: stream cached meme audio to newly connected peer
+          this.streamAudioCacheToPeer(senderId);
 
           // Save the updated state to the backend
           this.saveStateToBackend();
@@ -360,6 +370,26 @@ export class SyncEngine {
     } catch (_) {
       // Ephemeral meme triggers are best-effort
     }
+  }
+
+  /** Host sends all cached audio entries to a peer in background (staggered to avoid flooding) */
+  private async streamAudioCacheToPeer(peerId: string) {
+    const entries = soundManager.exportCachedEntries();
+    for (const entry of entries) {
+      try {
+        this.webrtcManager.sendTo(peerId, {
+          type: 'MEME_AUDIO_CACHE',
+          filename: entry.filename,
+          data: entry.data
+        });
+        // Stagger sends: 50ms gap between chunks to avoid data channel congestion
+        await new Promise(r => setTimeout(r, 50));
+      } catch (_) {
+        // Best-effort transfer; peer can still function without cached audio
+        break;
+      }
+    }
+    console.log(`[SyncEngine] Streamed ${entries.length} audio files to ${peerId}`);
   }
 
   public close() {
