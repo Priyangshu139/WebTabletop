@@ -7,6 +7,7 @@ export interface Player {
   money?: number;
   hand?: any[];
   isSpectator?: boolean;
+  calledUno?: boolean;
 }
 
 export interface EngineState {
@@ -25,6 +26,8 @@ export interface EngineState {
     propertiesOwned?: Record<string, string>; // tileIndex -> ownerId
     unoDeck?: any[];
     unoDiscardPile?: any[];
+    clockwise?: boolean;
+    activeColor?: string;
   };
   discordInviteLink?: string;
   timerLimit?: number; // in seconds
@@ -36,13 +39,13 @@ export interface EngineState {
 }
 
 export interface EngineCommand {
-  type: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE' | 'PIN_DISCORD' | 'BUY_PROPERTY' | 'PLAY_CARD' | 'DRAW_CARD' | 'SELECT_LOBBY_GAME' | 'UPDATE_LOBBY_SETTINGS' | 'CHANGE_PAWN_COLOR' | 'START_GAME' | 'PIN_CHAT' | 'UNPIN_CHAT' | 'TOGGLE_SPECTATOR_ROLE' | 'QUIT_MATCH';
+  type: 'ROLL_DICE' | 'MOVE_PIECE' | 'END_TURN' | 'RESOLVE_TILE' | 'PIN_DISCORD' | 'BUY_PROPERTY' | 'PLAY_CARD' | 'DRAW_CARD' | 'SELECT_LOBBY_GAME' | 'UPDATE_LOBBY_SETTINGS' | 'CHANGE_PAWN_COLOR' | 'START_GAME' | 'PIN_CHAT' | 'UNPIN_CHAT' | 'TOGGLE_SPECTATOR_ROLE' | 'QUIT_MATCH' | 'CALL_UNO';
   playerId: string;
   payload?: any;
 }
 
 export interface EngineEvent {
-  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED' | 'PLAYER_WON' | 'DISCORD_PINNED' | 'PROPERTY_BOUGHT' | 'RENT_PAID' | 'CARD_PLAYED' | 'CARD_DRAWN' | 'UNO_REVERSED' | 'UNO_SKIPPED' | 'SALARY_COLLECTED' | 'CHANCE_BONUS' | 'TAX_PAID' | 'LOBBY_GAME_SELECTED' | 'LOBBY_SETTINGS_UPDATED' | 'PAWN_COLOR_CHANGED' | 'GAME_STARTED' | 'CHAT_PINNED' | 'CHAT_UNPINNED' | 'SPECTATOR_ROLE_TOGGLED' | 'MATCH_QUIT';
+  type: 'DICE_ROLLED' | 'PIECE_MOVED' | 'PHASE_CHANGED' | 'TURN_ENDED' | 'PLAYER_JOINED' | 'PLAYER_WON' | 'DISCORD_PINNED' | 'PROPERTY_BOUGHT' | 'RENT_PAID' | 'CARD_PLAYED' | 'CARD_DRAWN' | 'UNO_REVERSED' | 'UNO_SKIPPED' | 'SALARY_COLLECTED' | 'CHANCE_BONUS' | 'TAX_PAID' | 'LOBBY_GAME_SELECTED' | 'LOBBY_SETTINGS_UPDATED' | 'PAWN_COLOR_CHANGED' | 'GAME_STARTED' | 'CHAT_PINNED' | 'CHAT_UNPINNED' | 'SPECTATOR_ROLE_TOGGLED' | 'MATCH_QUIT' | 'UNO_DECK_RESHUFFLED' | 'UNO_CALLED';
   playerId?: string;
   payload?: any;
   timestamp: number;

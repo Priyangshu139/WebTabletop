@@ -63,15 +63,32 @@ export function validateCommand(
 
       if (activeGame === 'uno-go') {
         const colors = ['red', 'blue', 'green', 'yellow'];
-        const values = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'SKIP', 'REVERSE', 'DRAW_TWO'];
         let idCounter = 0;
         const unoDeck: any[] = [];
         const unoDiscardPile: any[] = [];
-        colors.forEach(col => {
-          values.forEach(val => {
-            unoDeck.push({ id: `c-${idCounter++}`, color: col, value: val });
+
+        colors.forEach(color => {
+          // Numbered cards: One '0'
+          unoDeck.push({ id: `c-${idCounter++}`, color, value: '0' });
+          // Two of '1' through '9'
+          for (let num = 1; num <= 9; num++) {
+            unoDeck.push({ id: `c-${idCounter++}`, color, value: String(num) });
+            unoDeck.push({ id: `c-${idCounter++}`, color, value: String(num) });
+          }
+
+          // Action cards: Two of Skip, Reverse, Draw Two
+          const actions = ['SKIP', 'REVERSE', 'DRAW_TWO'];
+          actions.forEach(action => {
+            unoDeck.push({ id: `c-${idCounter++}`, color, value: action });
+            unoDeck.push({ id: `c-${idCounter++}`, color, value: action });
           });
         });
+
+        // Wild cards: Four Wild and four Wild Draw Four
+        for (let i = 0; i < 4; i++) {
+          unoDeck.push({ id: `c-${idCounter++}`, color: 'wild', value: 'WILD' });
+          unoDeck.push({ id: `c-${idCounter++}`, color: 'wild', value: 'WILD_DRAW_FOUR' });
+        }
 
         // Deterministic shuffle using Fisher-Yates with the passed PRNG
         for (let i = unoDeck.length - 1; i > 0; i--) {
@@ -85,6 +102,7 @@ export function validateCommand(
 
         payload.unoDeck = unoDeck;
         payload.unoDiscardPile = unoDiscardPile;
+        payload.clockwise = true;
 
         // Deal starting hands deterministically
         const startHands: Record<string, any[]> = {};
@@ -477,10 +495,19 @@ function validateMonopolyCommand(state: EngineState, command: EngineCommand, prn
   return events;
 }
 
-function validateUnoCommand(state: EngineState, command: EngineCommand, _prng: PRNG): EngineEvent[] {
+function validateUnoCommand(state: EngineState, command: EngineCommand, prng: PRNG): EngineEvent[] {
   const events: EngineEvent[] = [];
 
   switch (command.type) {
+    case 'CALL_UNO': {
+      events.push({
+        type: 'UNO_CALLED',
+        playerId: command.playerId,
+        timestamp: Date.now()
+      });
+      break;
+    }
+
     case 'PLAY_CARD': {
       const card = command.payload.card;
       const playerHand = state.players[command.playerId]?.hand || [];
@@ -494,24 +521,75 @@ function validateUnoCommand(state: EngineState, command: EngineCommand, _prng: P
       const topCard = discard[discard.length - 1];
 
       if (topCard) {
-        const matchesColor = card.color === 'wild' || topCard.color === 'wild' || card.color === topCard.color;
+        const requiredColor = state.moduleState.activeColor || topCard.color;
+        const matchesColor = card.color === 'wild' || requiredColor === 'wild' || card.color === requiredColor;
         const matchesValue = card.value === topCard.value;
         if (!matchesColor && !matchesValue) {
           throw new Error('Card color or value does not match discard pile.');
         }
       }
 
+      // Wild card color choice validation
+      let chosenColor = command.payload.chosenColor;
+      if (card.color === 'wild') {
+        if (!chosenColor || !['red', 'blue', 'green', 'yellow'].includes(chosenColor.toLowerCase())) {
+          throw new Error('Choosing a color is required for Wild cards.');
+        }
+        chosenColor = chosenColor.toLowerCase();
+      }
+
       events.push({
         type: 'CARD_PLAYED',
         playerId: command.playerId,
-        payload: { card },
+        payload: { card, chosenColor },
         timestamp: Date.now()
       });
 
-      // Special card effects: SKIP, REVERSE, DRAW_TWO
-      const playerIds = Object.keys(state.players);
+      // Turn Order & Special Card Effects
+      const playerIds = Object.keys(state.players).filter(pid => !state.players[pid].isSpectator);
       const currentIndex = playerIds.indexOf(command.playerId);
-      let nextIndex = (currentIndex + 1) % playerIds.length;
+      const isClockwise = state.moduleState.clockwise !== false;
+      
+      let newClockwise = isClockwise;
+      let step = isClockwise ? 1 : -1;
+      let nextIndex = (currentIndex + step + playerIds.length) % playerIds.length;
+
+      let localDeck = [...(state.moduleState.unoDeck || [])];
+      let localDiscard = [...discard];
+
+      // Helper to draw cards with automatic reshuffling
+      const drawCardsForPlayer = (victimId: string, count: number) => {
+        for (let i = 0; i < count; i++) {
+          if (localDeck.length === 0 && localDiscard.length > 1) {
+            // Reshuffle discard pile except top card
+            const top = localDiscard.pop(); // Keep top card
+            const newShuffled = [...localDiscard];
+            for (let x = newShuffled.length - 1; x > 0; x--) {
+              const y = Math.floor(prng.next() * (x + 1));
+              const t = newShuffled[x];
+              newShuffled[x] = newShuffled[y];
+              newShuffled[y] = t;
+            }
+            events.push({
+              type: 'UNO_DECK_RESHUFFLED',
+              payload: { newDeck: newShuffled, topCard: top },
+              timestamp: Date.now()
+            });
+            localDeck = newShuffled;
+            localDiscard = [top];
+          }
+
+          if (localDeck.length > 0) {
+            const drawn = localDeck.shift();
+            events.push({
+              type: 'CARD_DRAWN',
+              playerId: victimId,
+              payload: { card: drawn },
+              timestamp: Date.now()
+            });
+          }
+        }
+      };
 
       if (card.value === 'SKIP') {
         events.push({
@@ -519,39 +597,48 @@ function validateUnoCommand(state: EngineState, command: EngineCommand, _prng: P
           playerId: playerIds[nextIndex],
           timestamp: Date.now()
         });
-        // Skip player by adding 1 extra step
-        nextIndex = (nextIndex + 1) % playerIds.length;
+        nextIndex = (nextIndex + step + playerIds.length) % playerIds.length;
       } else if (card.value === 'REVERSE') {
         events.push({
           type: 'UNO_REVERSED',
           playerId: command.playerId,
+          payload: { clockwise: !isClockwise },
           timestamp: Date.now()
         });
-        // Reverse direction: next index goes backward
-        nextIndex = (currentIndex - 1 + playerIds.length) % playerIds.length;
+        if (playerIds.length === 2) {
+          // In 2-player game, Reverse acts as Skip
+          nextIndex = (nextIndex + step + playerIds.length) % playerIds.length;
+        } else {
+          newClockwise = !isClockwise;
+          step = newClockwise ? 1 : -1;
+          nextIndex = (currentIndex + step + playerIds.length) % playerIds.length;
+        }
       } else if (card.value === 'DRAW_TWO') {
         const victimId = playerIds[nextIndex];
-        const deck = state.moduleState.unoDeck || [];
-        // Force draw 2 cards
-        for (let i = 0; i < Math.min(2, deck.length); i++) {
-          events.push({
-            type: 'CARD_DRAWN',
-            playerId: victimId,
-            payload: { card: deck[i] },
-            timestamp: Date.now()
-          });
-        }
-        // Skip their turn
-        nextIndex = (nextIndex + 1) % playerIds.length;
+        drawCardsForPlayer(victimId, 2);
+        nextIndex = (nextIndex + step + playerIds.length) % playerIds.length;
+      } else if (card.value === 'WILD_DRAW_FOUR') {
+        const victimId = playerIds[nextIndex];
+        drawCardsForPlayer(victimId, 4);
+        nextIndex = (nextIndex + step + playerIds.length) % playerIds.length;
       }
 
       // Check win condition
+      // (hand size before card is played was 1, meaning now it becomes 0)
       if (playerHand.length === 1) {
         events.push({
           type: 'PLAYER_WON',
           playerId: command.playerId,
           timestamp: Date.now()
         });
+      } else if (playerHand.length === 2) {
+        // Playing second-to-last card leaving them with 1 card.
+        // Check if they called UNO.
+        const p = state.players[command.playerId];
+        if (!p.calledUno) {
+          // Penalty: draw 2 cards!
+          drawCardsForPlayer(command.playerId, 2);
+        }
       }
 
       events.push({
@@ -564,12 +651,32 @@ function validateUnoCommand(state: EngineState, command: EngineCommand, _prng: P
     }
 
     case 'DRAW_CARD': {
-      const deck = state.moduleState.unoDeck || [];
-      if (deck.length === 0) {
+      let localDeck = [...(state.moduleState.unoDeck || [])];
+      let localDiscard = [...(state.moduleState.unoDiscardPile || [])];
+
+      if (localDeck.length === 0 && localDiscard.length > 1) {
+        const top = localDiscard.pop(); // Keep top card
+        const newShuffled = [...localDiscard];
+        for (let x = newShuffled.length - 1; x > 0; x--) {
+          const y = Math.floor(prng.next() * (x + 1));
+          const t = newShuffled[x];
+          newShuffled[x] = newShuffled[y];
+          newShuffled[y] = t;
+        }
+        events.push({
+          type: 'UNO_DECK_RESHUFFLED',
+          payload: { newDeck: newShuffled, topCard: top },
+          timestamp: Date.now()
+        });
+        localDeck = newShuffled;
+        localDiscard = [top];
+      }
+
+      if (localDeck.length === 0) {
         throw new Error('Draw deck is empty.');
       }
 
-      const drawnCard = deck[0];
+      const drawnCard = localDeck.shift();
       events.push({
         type: 'CARD_DRAWN',
         playerId: command.playerId,
@@ -578,9 +685,11 @@ function validateUnoCommand(state: EngineState, command: EngineCommand, _prng: P
       });
 
       // End turn automatically after drawing
-      const playerIds = Object.keys(state.players);
+      const playerIds = Object.keys(state.players).filter(pid => !state.players[pid].isSpectator);
       const currentIndex = playerIds.indexOf(command.playerId);
-      const nextIndex = (currentIndex + 1) % playerIds.length;
+      const isClockwise = state.moduleState.clockwise !== false;
+      const step = isClockwise ? 1 : -1;
+      const nextIndex = (currentIndex + step + playerIds.length) % playerIds.length;
 
       events.push({
         type: 'TURN_ENDED',

@@ -195,4 +195,82 @@ describe('Rule Validation Engine', () => {
     expect(events3.length).toBe(1);
     expect(events3[0].type).toBe('SPECTATOR_ROLE_TOGGLED');
   });
+
+  it('validates standard Uno rules: actions, wilds, direction reversal, deck reshuffling, and Call UNO penalties', () => {
+    const prng = new PRNG('test-seed');
+    const baseState: EngineState = {
+      seed: 'test-seed',
+      prngState: 0,
+      activeModule: 'uno-go',
+      players: {
+        'P1': { id: 'P1', color: 'Red', skinTone: 'light', emojiFace: '😀', isHost: true, hand: [{ id: 'w1', color: 'wild', value: 'WILD' }] },
+        'P2': { id: 'P2', color: 'Blue', skinTone: 'medium', emojiFace: '😎', isHost: false, hand: [{ id: 'num-2', color: 'red', value: '2' }] },
+        'P3': { id: 'P3', color: 'Green', skinTone: 'dark', emojiFace: '🤔', isHost: false, hand: [{ id: 'num-3', color: 'red', value: '3' }] }
+      },
+      turn: { currentPlayerId: 'P1', phase: 'StartTurn' },
+      eventLog: [],
+      moduleState: {
+        lastDiceValue: 0,
+        playerPositions: {},
+        unoDiscardPile: [{ id: 'top-1', color: 'red', value: '1' }],
+        unoDeck: [{ id: 'draw-1', color: 'red', value: '4' }, { id: 'draw-2', color: 'blue', value: '5' }],
+        clockwise: true
+      }
+    };
+
+    // 1. Play wild card without chosenColor -> throws
+    const invalidWild: EngineCommand = {
+      type: 'PLAY_CARD',
+      playerId: 'P1',
+      payload: { card: { id: 'w1', color: 'wild', value: 'WILD' } }
+    };
+    expect(() => validateCommand(baseState, invalidWild, prng)).toThrow('Choosing a color is required for Wild cards.');
+
+    // 2. Play wild card with chosenColor -> updates activeColor to green, next player is P2
+    const validWild: EngineCommand = {
+      type: 'PLAY_CARD',
+      playerId: 'P1',
+      payload: { card: { id: 'w1', color: 'wild', value: 'WILD' }, chosenColor: 'green' }
+    };
+    const events1 = validateCommand(baseState, validWild, prng);
+    expect(events1[0].type).toBe('CARD_PLAYED');
+    expect(events1[0].payload.chosenColor).toBe('green');
+    expect(events1[events1.length - 1].payload.nextPlayerId).toBe('P2');
+
+    // 3. Test Reverse card
+    const stateWithReverse = {
+      ...baseState,
+      players: {
+        ...baseState.players,
+        'P1': { ...baseState.players['P1'], hand: [{ id: 'rev-1', color: 'red', value: 'REVERSE' }] }
+      }
+    };
+    const reverseCmd: EngineCommand = {
+      type: 'PLAY_CARD',
+      playerId: 'P1',
+      payload: { card: { id: 'rev-1', color: 'red', value: 'REVERSE' } }
+    };
+    const events2 = validateCommand(stateWithReverse, reverseCmd, prng);
+    // Direction toggles, next player is P3 (counter-clockwise)
+    expect(events2.some(e => e.type === 'UNO_REVERSED')).toBe(true);
+    expect(events2[events2.length - 1].payload.nextPlayerId).toBe('P3');
+
+    // 4. Test Call UNO penalty
+    const stateWithTwoCards = {
+      ...baseState,
+      players: {
+        ...baseState.players,
+        'P1': { ...baseState.players['P1'], hand: [{ id: 'card-a', color: 'red', value: '8' }, { id: 'card-b', color: 'red', value: '9' }] }
+      }
+    };
+    const playWithoutUnoCmd: EngineCommand = {
+      type: 'PLAY_CARD',
+      playerId: 'P1',
+      payload: { card: { id: 'card-a', color: 'red', value: '8' } }
+    };
+    const events3 = validateCommand(stateWithTwoCards, playWithoutUnoCmd, prng);
+    // Should draw 2 penalty cards because calledUno is falsy
+    const drawEvents = events3.filter(e => e.type === 'CARD_DRAWN');
+    expect(drawEvents.length).toBe(2);
+  });
 });

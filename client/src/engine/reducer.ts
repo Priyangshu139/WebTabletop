@@ -104,11 +104,14 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       if (activeGame === 'uno-go') {
         nextState.moduleState.unoDeck = event.payload.unoDeck;
         nextState.moduleState.unoDiscardPile = event.payload.unoDiscardPile;
+        nextState.moduleState.clockwise = event.payload.clockwise;
+        nextState.moduleState.activeColor = undefined;
 
         Object.keys(nextState.players).forEach(pid => {
           const p = nextState.players[pid];
           if (!p.isSpectator) {
             p.hand = event.payload.startHands?.[pid] || [];
+            p.calledUno = false;
           }
         });
       } else {
@@ -284,11 +287,13 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       const card = event.payload.card;
       if (nextState.players[pId] && nextState.players[pId].hand) {
         nextState.players[pId].hand = nextState.players[pId].hand!.filter((c: any) => c.id !== card.id);
+        nextState.players[pId].calledUno = false; // Reset calledUno once played
       }
       if (!nextState.moduleState.unoDiscardPile) {
         nextState.moduleState.unoDiscardPile = [];
       }
       nextState.moduleState.unoDiscardPile.push(card);
+      nextState.moduleState.activeColor = event.payload.chosenColor || card.color;
       break;
     }
 
@@ -302,6 +307,25 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
       if (nextState.moduleState.unoDeck) {
         nextState.moduleState.unoDeck = nextState.moduleState.unoDeck.filter((c: any) => c.id !== card.id);
       }
+      break;
+    }
+
+    case 'UNO_CALLED': {
+      const pId = event.playerId!;
+      if (nextState.players[pId]) {
+        nextState.players[pId].calledUno = true;
+      }
+      break;
+    }
+
+    case 'UNO_REVERSED': {
+      nextState.moduleState.clockwise = event.payload.clockwise;
+      break;
+    }
+
+    case 'UNO_DECK_RESHUFFLED': {
+      nextState.moduleState.unoDeck = event.payload.newDeck;
+      nextState.moduleState.unoDiscardPile = [event.payload.topCard];
       break;
     }
   }
