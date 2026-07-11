@@ -16,12 +16,13 @@ let spectatingPlayerId = 'P1';
 let timerIntervalId: any = null;
 let lastProcessedEventCount = 0;
 
-const backendHost = (window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost') 
-  ? 'localhost:3000' 
-  : `${window.location.hostname}:3000`;
+const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
 
-const REST_URL = `http://${backendHost}`;
-const WS_URL = `ws://${backendHost}`;
+const REST_URL = import.meta.env.VITE_BACKEND_URL 
+  ? import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '')
+  : (isLocal ? 'http://localhost:3000' : `http://${window.location.hostname}:3000`);
+
+const WS_URL = REST_URL.replace(/^http/, 'ws');
 
 const app = document.getElementById('app');
 
