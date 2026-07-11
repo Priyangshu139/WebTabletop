@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { applyEvent } from './reducer';
 import { EngineState, EngineEvent, EngineCommand } from './types';
 import { validateCommand } from './rules';
+import { PRNG } from './prng';
 
 const initialTestState: EngineState = {
   seed: 'test-seed',
@@ -182,6 +183,7 @@ describe('Pure State Reducer', () => {
   });
 
   it('verifies QUIT_MATCH command validation and MATCH_QUIT state resetting', () => {
+    const prng = new PRNG('test-seed');
     let state = applyEvent(initialTestState, {
       type: 'LOBBY_GAME_SELECTED',
       playerId: 'P1',
@@ -199,13 +201,13 @@ describe('Pure State Reducer', () => {
       type: 'QUIT_MATCH',
       playerId: 'P2'
     };
-    expect(() => validateCommand(state, nonHostCmd)).toThrow('Only the lobby Host can modify settings.');
+    expect(() => validateCommand(state, nonHostCmd, prng)).toThrow('Only the lobby Host can modify settings.');
 
     const hostCmd: EngineCommand = {
       type: 'QUIT_MATCH',
       playerId: 'P1'
     };
-    const events = validateCommand(state, hostCmd);
+    const events = validateCommand(state, hostCmd, prng);
     expect(events.length).toBe(1);
     expect(events[0].type).toBe('MATCH_QUIT');
 

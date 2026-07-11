@@ -87,18 +87,29 @@ function renderMatchmaking() {
         return;
       }
 
-      const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state?playerId=${encodeURIComponent(playerId)}&secretHash=${encodeURIComponent(secretHash)}`);
-      
-      if (stateRes.status === 404) {
+      const infoRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/info?playerId=${encodeURIComponent(playerId)}&secretHash=${encodeURIComponent(secretHash)}`);
+      if (infoRes.status === 404) {
         showError('Session lobby not found.');
         return;
       }
+      if (!infoRes.ok) {
+        showError(await infoRes.text());
+        return;
+      }
 
-      if (stateRes.ok) {
-        const stateData = await stateRes.json();
-        initializeSync(lobbyId, playerId, secretHash, true, stateData.state);
+      const infoData = await infoRes.json();
+      const targetHostId = infoData.hostId;
+
+      if (targetHostId === playerId) {
+        const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state?playerId=${encodeURIComponent(playerId)}&secretHash=${encodeURIComponent(secretHash)}`);
+        if (stateRes.ok) {
+          const stateData = await stateRes.json();
+          initializeSync(lobbyId, playerId, secretHash, true, stateData.state);
+        } else {
+          initializeSync(lobbyId, playerId, secretHash, true, undefined);
+        }
       } else {
-        initializeSync(lobbyId, playerId, secretHash, false, undefined);
+        initializeSync(lobbyId, playerId, secretHash, false, undefined, undefined, undefined, undefined, targetHostId);
       }
     } catch (err: any) {
       showError(`Failed to rejoin session: ${err.message}`);
@@ -687,7 +698,8 @@ async function initializeSync(
   savedState?: EngineState,
   traits?: any,
   gameModule?: 'ludo-go-classic' | 'monopoly-go' | 'uno-go',
-  timerLimit?: number
+  timerLimit?: number,
+  targetHostId?: string
 ) {
   enableAutoFullscreen(); // Automatically request fullscreen on first click/touch in lobby or game
   
@@ -973,7 +985,8 @@ async function initializeSync(
         soundManager.playUnoFanfare();
       }
     },
-    playerTraits
+    playerTraits,
+    targetHostId
   );
 
   syncEngine.onMemeReceived = (senderId, memeId) => {
@@ -1797,7 +1810,15 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
 
   document.querySelectorAll('#btn-exit-game').forEach(btn => {
     btn.addEventListener('click', () => {
-      window.location.reload();
+      if (syncEngine) {
+        if (syncEngine.isHost) {
+          syncEngine.dispatch('QUIT_MATCH');
+        } else {
+          triggerFloatingAlert('Only the host can quit the match.');
+        }
+      } else {
+        window.location.reload();
+      }
     });
   });
 
@@ -2026,6 +2047,10 @@ function updateUI(gameState: EngineState) {
 
   // Route to Lobby Room screen if pre-game setup phase is active
   if (!gameState.lobbyStarted && !isReplayMode) {
+    if (threeRenderer) {
+      threeRenderer.destroy();
+      threeRenderer = null;
+    }
     renderLobbyRoom(gameState);
     return;
   }

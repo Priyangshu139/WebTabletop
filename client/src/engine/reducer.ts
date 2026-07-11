@@ -207,6 +207,7 @@ export function applyEvent(state: EngineState, event: EngineEvent): EngineState 
         p.hand = undefined;
       });
       nextState.moduleState = {
+        lastDiceValue: 0,
         playerPositions: {},
         propertiesOwned: nextState.selectedGame === 'monopoly-go' ? {} : undefined,
         unoDeck: undefined,

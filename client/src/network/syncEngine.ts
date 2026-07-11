@@ -33,6 +33,7 @@ export class SyncEngine {
   private onChatReceived?: (chat: any) => void;
   public onPoseReceived?: (pose: PlayerPose) => void;
   public onMemeReceived?: (playerId: string, memeId: string) => void;
+  private targetHostId: string;
 
   constructor(
     initialState: EngineState,
@@ -45,7 +46,8 @@ export class SyncEngine {
     onStateUpdate: (state: EngineState) => void,
     onError?: (msg: string) => void,
     onChatReceived?: (chat: any) => void,
-    playerTraits?: any
+    playerTraits?: any,
+    targetHostId?: string
   ) {
     this.state = initialState;
     this.lobbyId = lobbyId;
@@ -58,6 +60,7 @@ export class SyncEngine {
     this.onError = onError;
     this.onChatReceived = onChatReceived;
     this.playerTraits = playerTraits || {};
+    this.targetHostId = targetHostId || 'P1';
 
     this.signalingClient = new SignalingClient(this.signalingUrl);
     this.webrtcManager = new WebRTCManager(this.isHost, this.signalingClient);
@@ -69,8 +72,8 @@ export class SyncEngine {
     await this.signalingClient.connect(this.lobbyId, this.playerId, this.secretHash);
 
     if (!this.isHost) {
-      // Connect directly to host P1 over WebRTC
-      await this.webrtcManager.initiatePeerConnection('P1');
+      // Connect directly to host over WebRTC
+      await this.webrtcManager.initiatePeerConnection(this.targetHostId);
     } else {
       // Authoritative host saves initial state representation
       await this.saveStateToBackend();
@@ -88,6 +91,7 @@ export class SyncEngine {
         this.webrtcManager = new WebRTCManager(true, this.signalingClient);
         this.setupListeners(); // re-bind listeners
         this.onStateUpdate(this.state);
+        await this.saveStateToBackend(); // Backup state immediately under the new host credentials
       } else {
         // We are still a Peer; initiate connection to the new Host
         this.webrtcManager = new WebRTCManager(false, this.signalingClient);
