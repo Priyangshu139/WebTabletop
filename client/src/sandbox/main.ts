@@ -4,6 +4,7 @@ import { ReplayEngine, ReplayPayload } from '../engine/replay';
 import { ThreeRenderer } from './threeRenderer';
 import monopolyModule from './modules/monopoly_go.json';
 import { soundManager } from './soundManager';
+import { MEME_DATABASE } from './memeData';
 
 // Local controllers
 let syncEngine: SyncEngine | null = null;
@@ -2570,6 +2571,13 @@ function renderLobbyRoom(gameState: EngineState) {
   const mainContent = document.getElementById('lobby-main-content');
   if (!mainContent) return;
 
+  // Load wheel selection
+  let savedWheel = JSON.parse(localStorage.getItem('webtabletop-meme-wheel') || '[]');
+  if (!Array.isArray(savedWheel) || savedWheel.length !== 6) {
+    savedWheel = MEME_DATABASE.slice(0, 6).map(m => m.id);
+    localStorage.setItem('webtabletop-meme-wheel', JSON.stringify(savedWheel));
+  }
+
   mainContent.classList.remove('gameplay-active');
   mainContent.style.display = 'flex';
   mainContent.style.gap = '32px';
@@ -2659,6 +2667,21 @@ function renderLobbyRoom(gameState: EngineState) {
                   ` : ''}
                 </div>
               </div>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Quick Meme Wheel Setup -->
+      <div style="margin-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 12px;">
+        <div style="color: #94a3b8; font-weight: bold; font-size: 11px; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px;">QUICK MEME WHEEL (6 SLOTS)</div>
+        <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 6px;" id="lobby-meme-wheel-slots">
+          ${savedWheel.map((mid: string, idx: number) => {
+            const meme = MEME_DATABASE.find(m => m.id === mid) || MEME_DATABASE[idx];
+            return `
+              <button class="action-btn meme-slot-btn" data-slot-idx="${idx}" style="padding: 10px 4px; font-size: 20px; background: rgba(30,41,59,0.8); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px; cursor: pointer; text-align: center;" title="${meme.name.replace(/-/g, ' ')}">
+                ${meme.emoji}
+              </button>
             `;
           }).join('')}
         </div>
@@ -2901,6 +2924,55 @@ function renderLobbyRoom(gameState: EngineState) {
     } else {
       chatToggleBtn.innerHTML = '◀';
     }
+  });
+
+  document.querySelectorAll('.meme-slot-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const slotIdx = parseInt((e.currentTarget as HTMLButtonElement).dataset.slotIdx || '0');
+      
+      // Render scrollable selector modal
+      const modal = document.createElement('div');
+      modal.style.position = 'fixed';
+      modal.style.top = '0';
+      modal.style.left = '0';
+      modal.style.width = '100vw';
+      modal.style.height = '100vh';
+      modal.style.background = 'rgba(15, 23, 42, 0.7)';
+      modal.style.backdropFilter = 'blur(8px)';
+      modal.style.display = 'flex';
+      modal.style.alignItems = 'center';
+      modal.style.justifyContent = 'center';
+      modal.style.zIndex = '999999';
+
+      modal.innerHTML = `
+        <div style="background: #1e293b; border: 1px solid rgba(255,255,255,0.1); border-radius: 20px; padding: 24px; width: 340px; max-height: 480px; overflow-y: auto; display: flex; flex-direction: column; gap: 16px; pointer-events: auto;">
+          <h3 style="margin: 0; color: white;">Choose Meme for Slot ${slotIdx + 1}</h3>
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+            ${MEME_DATABASE.map(meme => `
+              <button class="action-btn select-meme-btn" data-meme-id="${meme.id}" style="padding: 10px; font-size: 20px; background: rgba(30,41,59,0.8); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; cursor: pointer;" title="${meme.name.replace(/-/g, ' ')}">
+                ${meme.emoji}
+              </button>
+            `).join('')}
+          </div>
+          <button id="close-meme-selector" style="background: #475569; color: white; border: none; border-radius: 8px; padding: 8px; font-weight: bold; cursor: pointer; margin-top: 8px; width: 100%;">Cancel</button>
+        </div>
+      `;
+
+      document.body.appendChild(modal);
+
+      modal.querySelectorAll('.select-meme-btn').forEach(mBtn => {
+        mBtn.addEventListener('click', (ev) => {
+          const mid = (ev.currentTarget as HTMLButtonElement).dataset.memeId || '';
+          const currentWheel = JSON.parse(localStorage.getItem('webtabletop-meme-wheel') || '[]');
+          currentWheel[slotIdx] = mid;
+          localStorage.setItem('webtabletop-meme-wheel', JSON.stringify(currentWheel));
+          modal.remove();
+          renderLobbyRoom(gameState); // Re-render to update slot emojis
+        });
+      });
+
+      modal.querySelector('#close-meme-selector')?.addEventListener('click', () => modal.remove());
+    });
   });
 
   renderChatHistory(gameState);
