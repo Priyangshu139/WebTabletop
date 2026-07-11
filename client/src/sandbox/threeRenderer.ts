@@ -30,6 +30,9 @@ export class ThreeRenderer {
   private tableMesh!: THREE.Mesh;
   private deckMesh!: THREE.Group;
   private unoLogoMesh!: THREE.Mesh;
+  private tableContentGroup!: THREE.Group;
+  private roomGroup!: THREE.Group;
+  private activeTableScale: number = 1.0;
 
   // Active state
   private currentState: EngineState | null = null;
@@ -170,6 +173,10 @@ export class ThreeRenderer {
 
   private initThree() {
     this.scene = new THREE.Scene();
+    this.tableContentGroup = new THREE.Group();
+    this.scene.add(this.tableContentGroup);
+    this.roomGroup = new THREE.Group();
+    this.scene.add(this.roomGroup);
     this.scene.background = new THREE.Color(0x0f172a); // Slate background
 
     // Perspective Camera
@@ -233,14 +240,14 @@ export class ThreeRenderer {
     this.tableMesh = new THREE.Mesh(tableGeom, tableMat);
     this.tableMesh.position.y = -0.1;
     this.tableMesh.receiveShadow = true;
-    this.scene.add(this.tableMesh);
+    this.tableContentGroup.add(this.tableMesh);
 
     // Table leg support
     const supportGeom = new THREE.CylinderGeometry(1, 1.2, 3, 32);
     const supportMat = new THREE.MeshStandardMaterial({ color: 0x1a0f0a });
     const supportMesh = new THREE.Mesh(supportGeom, supportMat);
     supportMesh.position.y = -1.6;
-    this.scene.add(supportMesh);
+    this.tableContentGroup.add(supportMesh);
 
     // Add stylized UNO logo on the center of the table (initially hidden)
     const logoCanvas = document.createElement('canvas');
@@ -300,7 +307,7 @@ export class ThreeRenderer {
     this.unoLogoMesh.rotation.x = -Math.PI / 2;
     this.unoLogoMesh.position.set(0, 0.005, 0); // slightly above wood
     this.unoLogoMesh.visible = false;
-    this.scene.add(this.unoLogoMesh);
+    this.tableContentGroup.add(this.unoLogoMesh);
 
     // Build cozy, optimized room props around the table
     this.setupRoomProps();
@@ -318,7 +325,7 @@ export class ThreeRenderer {
     floorMesh.rotation.x = -Math.PI / 2;
     floorMesh.position.y = -3.1;
     floorMesh.receiveShadow = true;
-    this.scene.add(floorMesh);
+    this.roomGroup.add(floorMesh);
 
     // 2. Room Walls in 360 degrees with light plaster texture bump mapping
     const wallTex = this.createWallTexture();
@@ -333,25 +340,25 @@ export class ThreeRenderer {
     const backWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), wallMat);
     backWall.position.set(0, 4.9, -12);
     backWall.receiveShadow = true;
-    this.scene.add(backWall);
+    this.roomGroup.add(backWall);
 
     const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), wallMat);
     leftWall.rotation.y = Math.PI / 2;
     leftWall.position.set(-12, 4.9, 0);
     leftWall.receiveShadow = true;
-    this.scene.add(leftWall);
+    this.roomGroup.add(leftWall);
 
     const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), wallMat);
     rightWall.rotation.y = -Math.PI / 2;
     rightWall.position.set(12, 4.9, 0);
     rightWall.receiveShadow = true;
-    this.scene.add(rightWall);
+    this.roomGroup.add(rightWall);
 
     const frontWall = new THREE.Mesh(new THREE.PlaneGeometry(24, 16), wallMat);
     frontWall.rotation.y = Math.PI;
     frontWall.position.set(0, 4.9, 12);
     frontWall.receiveShadow = true;
-    this.scene.add(frontWall);
+    this.roomGroup.add(frontWall);
 
     // 3. Fake Window with CLOSED Burgundy Curtains on Left Wall
     const windowGroup = new THREE.Group();
@@ -438,7 +445,7 @@ export class ThreeRenderer {
     rodMesh.position.set(0.08, 3.2, 0);
     windowGroup.add(rodMesh);
 
-    this.scene.add(windowGroup);
+    this.roomGroup.add(windowGroup);
 
     // 4. Hanging Chandelier/Lamp on Top of Table
     const chandelier = new THREE.Group();
@@ -468,7 +475,7 @@ export class ThreeRenderer {
     bulb.position.y = -3.7;
     chandelier.add(bulb);
 
-    this.scene.add(chandelier);
+    this.roomGroup.add(chandelier);
 
     // 5. Cozy Corner Floor Lamps (Two lamps: back-left and front-right)
     // Floor Lamp 1 (Back-Left Corner)
@@ -504,9 +511,9 @@ export class ThreeRenderer {
     this.lampLight.position.set(-9.0, 1.5, -9.0);
     this.lampLight.castShadow = true;
     this.lampLight.shadow.bias = -0.002;
-    this.scene.add(this.lampLight);
+    this.roomGroup.add(this.lampLight);
 
-    this.scene.add(lampGroup);
+    this.roomGroup.add(lampGroup);
 
     // Floor Lamp 2 (Front-Right Corner)
     const lampGroup2 = new THREE.Group();
@@ -541,9 +548,9 @@ export class ThreeRenderer {
     this.lampLight2.position.set(9.0, 1.5, 9.0);
     this.lampLight2.castShadow = true;
     this.lampLight2.shadow.bias = -0.002;
-    this.scene.add(this.lampLight2);
+    this.roomGroup.add(this.lampLight2);
 
-    this.scene.add(lampGroup2);
+    this.roomGroup.add(lampGroup2);
 
     // 6. Wall Paintings (Canvas & art details use MeshBasicMaterial so they are self-illuminated)
     // Painting 1: Abstract Art on Back Wall
@@ -569,7 +576,7 @@ export class ThreeRenderer {
     blueBlock.position.set(-0.4, -0.6, 0.08);
     painting1.add(blueBlock);
 
-    this.scene.add(painting1);
+    this.roomGroup.add(painting1);
 
     // Painting 2: Voxel Landscape on Right Wall
     const painting2 = new THREE.Group();
@@ -595,7 +602,7 @@ export class ThreeRenderer {
     hill2.position.set(0.7, -0.5, 0.09);
     painting2.add(hill2);
 
-    this.scene.add(painting2);
+    this.roomGroup.add(painting2);
 
     // Painting 3: Minimalist Figure Portrait on Front Wall
     const painting3 = new THREE.Group();
@@ -621,7 +628,7 @@ export class ThreeRenderer {
     coat.position.set(0, -0.5, 0.08);
     painting3.add(coat);
 
-    this.scene.add(painting3);
+    this.roomGroup.add(painting3);
 
     // 7. Detailed Wooden Door on Front Wall
     const doorGroup = new THREE.Group();
@@ -652,7 +659,7 @@ export class ThreeRenderer {
     knob.position.set(0.7, 2.3, 0.12);
     doorGroup.add(knob);
 
-    this.scene.add(doorGroup);
+    this.roomGroup.add(doorGroup);
 
     // 8. Standing Voxel Bookcase (Back Wall)
     const bookcase = new THREE.Group();
@@ -702,7 +709,7 @@ export class ThreeRenderer {
       }
     }
 
-    this.scene.add(bookcase);
+    this.roomGroup.add(bookcase);
 
     // 9. Indoor Plants on Stands (Two plants: back-right and front-left)
     // Plant 1 (Back-Right Corner)
@@ -756,7 +763,7 @@ export class ThreeRenderer {
       plantGroup.add(leaf);
     });
 
-    this.scene.add(plantGroup);
+    this.roomGroup.add(plantGroup);
 
     // Plant 2 (Front-Left Corner)
     const plantGroup2 = new THREE.Group();
@@ -798,7 +805,7 @@ export class ThreeRenderer {
       plantGroup2.add(leaf);
     });
 
-    this.scene.add(plantGroup2);
+    this.roomGroup.add(plantGroup2);
   }
 
   private createWallTexture(): THREE.Texture {
@@ -975,16 +982,34 @@ export class ThreeRenderer {
     this.isSpectator = isSpectator;
     this.activePlayerId = spectatingPlayerId; // Ensure activePlayerId matches the POV
 
+    // Calculate dynamic table and room scale based on player count
+    const numPlayers = Object.keys(state.players).length;
+    let scale = 1.0;
+    if (numPlayers <= 2) {
+      scale = 0.58; // Closer/cozier table for 2 players
+    } else if (numPlayers === 3) {
+      scale = 0.78; // Medium table for 3 players
+    }
+    this.activeTableScale = scale;
+
+    // Apply X/Z scaling to tabletop content and room props groups
+    if (this.tableContentGroup) {
+      this.tableContentGroup.scale.set(scale, 1, scale);
+    }
+    if (this.roomGroup) {
+      this.roomGroup.scale.set(scale, 1, scale);
+    }
+
     // Camera perspective focus matches the spectated player's seat position
     const targetPId = isSpectator ? spectatingPlayerId : this.activePlayerId;
 
     // Initialize starting view direction to face the center of the table
     if (!this.hasInitializedAngles && state.players[targetPId]) {
       const playerIds = Object.keys(state.players);
-      const numPlayers = playerIds.length;
+      const numPlayersVal = playerIds.length;
       const idx = playerIds.indexOf(targetPId);
       if (idx !== -1) {
-        const angle = (idx / numPlayers) * Math.PI * 2;
+        const angle = (idx / numPlayersVal) * Math.PI * 2;
         this.theta = angle + Math.PI; // Face opposite to seat, looking towards (0,0,0)
         this.phi = Math.PI / 2.15;    // Looking slightly downwards towards table center
         this.hasInitializedAngles = true;
@@ -1022,7 +1047,7 @@ export class ThreeRenderer {
     // Positions avatars evenly around the 4.5m table perimeter (at radius = 4.2)
     playerIds.forEach((pid, index) => {
       const angle = (index / numPlayers) * Math.PI * 2;
-      const seatRadius = 4.2;
+      const seatRadius = 4.2 * this.activeTableScale;
       const x = seatRadius * Math.sin(angle);
       const z = seatRadius * Math.cos(angle);
 
@@ -1191,6 +1216,8 @@ export class ThreeRenderer {
 
         group.position.set(x, 0, z);
         group.lookAt(0, 0, 0);
+        const modelScale = 0.85 + (this.activeTableScale - 0.58) * 0.35;
+        group.scale.set(modelScale, modelScale, modelScale);
 
         this.scene.add(group);
         this.avatarsMap.set(pid, group);
@@ -1241,6 +1268,8 @@ export class ThreeRenderer {
         // Update avatar position if count changed
         group.position.set(x, 0, z);
         group.lookAt(0, 0, 0);
+        const modelScale = 0.85 + (this.activeTableScale - 0.58) * 0.35;
+        group.scale.set(modelScale, modelScale, modelScale);
 
         // Update left hand held cards visibility
         const cardCountVal = state.players[pid]?.hand?.length || 0;
@@ -1307,7 +1336,7 @@ export class ThreeRenderer {
     });
     const boardMesh = new THREE.Mesh(boardGeom, boardMat);
     boardMesh.position.y = 0.01;
-    this.scene.add(boardMesh);
+    this.tableContentGroup.add(boardMesh);
     this.tilesMap.push(boardMesh);
 
     // Draw the 16 tiles (4 per side) around the edge of the square board
@@ -1344,7 +1373,7 @@ export class ThreeRenderer {
       });
       const tileMesh = new THREE.Mesh(tileGeom, tileMat);
       tileMesh.position.set(tx, 0.02, tz);
-      this.scene.add(tileMesh);
+      this.tableContentGroup.add(tileMesh);
       this.tilesMap.push(tileMesh);
 
       // Render flat tile title text
@@ -1372,7 +1401,7 @@ export class ThreeRenderer {
       const labelMesh = new THREE.Mesh(labelGeom, labelMat);
       labelMesh.rotation.x = -Math.PI / 2;
       labelMesh.position.set(tx, 0.05, tz);
-      this.scene.add(labelMesh);
+      this.tableContentGroup.add(labelMesh);
       this.tilesMap.push(labelMesh);
 
       // Draw 3D flag ownership markers if owned (only for Monopoly)
@@ -1409,7 +1438,7 @@ export class ThreeRenderer {
           flagGroup.add(bannerMesh);
 
           flagGroup.position.set(fx, 0.02, fz);
-          this.scene.add(flagGroup);
+          this.tableContentGroup.add(flagGroup);
           this.tilesMap.push(flagGroup);
         }
       }
@@ -1464,7 +1493,7 @@ export class ThreeRenderer {
         pawnGroup.add(topMesh);
 
         pawnGroup.position.copy(targetPos);
-        this.scene.add(pawnGroup);
+        this.tableContentGroup.add(pawnGroup);
         this.pawnsMap.set(pid, pawnGroup);
       }
     });
@@ -1483,7 +1512,7 @@ export class ThreeRenderer {
       this.deckMesh.add(card);
     }
     this.deckMesh.position.set(0, 0, 0); // Keep container at origin, positioning is handled per card
-    this.scene.add(this.deckMesh);
+    this.tableContentGroup.add(this.deckMesh);
 
     // Discard Pile card (lying flat, face up)
     const topDiscard = state.moduleState.unoDiscardPile?.[state.moduleState.unoDiscardPile.length - 1];
@@ -1492,7 +1521,7 @@ export class ThreeRenderer {
       discardMesh.rotation.x = -Math.PI / 2;
       discardMesh.rotation.z = 0.25; // slight organic rotation angle
       discardMesh.position.set(0.7, 0.01, 0);
-      this.scene.add(discardMesh);
+      this.tableContentGroup.add(discardMesh);
       this.cardsMap.push(discardMesh);
 
       // Floating card count label above the discard pile
@@ -1518,7 +1547,7 @@ export class ThreeRenderer {
         const labelSprite = new THREE.Sprite(labelSpriteMat);
         labelSprite.position.set(0.7, 0.65, 0);
         labelSprite.scale.set(0.7, 0.35, 1);
-        this.scene.add(labelSprite);
+        this.tableContentGroup.add(labelSprite);
         this.cardsMap.push(labelSprite);
       }
     }
@@ -1529,7 +1558,7 @@ export class ThreeRenderer {
 
     playerIds.forEach((pid, index) => {
       const angle = (index / numPlayers) * Math.PI * 2;
-      const handRadius = 3.2; // slightly forward from the avatar
+      const handRadius = 3.2 * this.activeTableScale; // dynamically scale hand placement
       const hx = handRadius * Math.sin(angle);
       const hz = handRadius * Math.cos(angle);
 
@@ -1556,7 +1585,7 @@ export class ThreeRenderer {
         // Tilt cards backwards slightly (looking like they are held)
         cardMesh.rotateX(0.2);
 
-        this.scene.add(cardMesh);
+        this.tableContentGroup.add(cardMesh);
         this.cardsMap.push(cardMesh);
       });
     });
@@ -1565,25 +1594,25 @@ export class ThreeRenderer {
 
 
   private clearGameComponents() {
-    this.tilesMap.forEach(mesh => this.scene.remove(mesh));
+    this.tilesMap.forEach(mesh => this.tableContentGroup.remove(mesh));
     this.tilesMap = [];
 
     // Remove obsolete pawns whose players left
     if (this.currentState) {
       this.pawnsMap.forEach((mesh, pid) => {
         if (!this.currentState!.players[pid]) {
-          this.scene.remove(mesh);
+          this.tableContentGroup.remove(mesh);
           this.pawnsMap.delete(pid);
           this.pawnTargetsMap.delete(pid);
         }
       });
     }
 
-    this.cardsMap.forEach(mesh => this.scene.remove(mesh));
+    this.cardsMap.forEach(mesh => this.tableContentGroup.remove(mesh));
     this.cardsMap = [];
 
     if (this.deckMesh) {
-      this.scene.remove(this.deckMesh);
+      this.tableContentGroup.remove(this.deckMesh);
     }
   }
 
