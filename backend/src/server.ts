@@ -6,6 +6,9 @@ import { setupSignaling, lobbies } from './signaling.js';
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Serve meme sounds statically
+app.use('/meme', express.static('/home/priyangshu/WebTabletop/meme sound ogg'));
+
 // Enable JSON parsing
 app.use(express.json());
 
