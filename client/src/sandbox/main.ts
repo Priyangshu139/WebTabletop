@@ -924,7 +924,7 @@ async function initializeSync(
     if (!meme) return;
 
     // 1. Play local audio
-    soundManager.playMemeSound(meme.filename);
+    soundManager.playMemeSound(meme.filename, REST_URL);
 
     // 2. Override avatar face emoji
     if (threeRenderer) {

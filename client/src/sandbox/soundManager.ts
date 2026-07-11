@@ -172,10 +172,11 @@ class SoundManager {
   }
 
   // Play a meme sound ogg file statically hosted on backend
-  public playMemeSound(filename: string) {
+  public playMemeSound(filename: string, baseUrl?: string) {
     if (this.soundMode !== 'on' && this.soundMode !== 'meme-only') return;
     try {
-      const audio = new Audio(`http://localhost:3000/meme/${encodeURIComponent(filename)}`);
+      const host = baseUrl || `http://${window.location.hostname}:3000`;
+      const audio = new Audio(`${host}/meme/${encodeURIComponent(filename)}`);
       audio.volume = 1.0;
       audio.play().catch(err => {
         console.warn('Meme sound play failed:', err);
