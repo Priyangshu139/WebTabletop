@@ -918,6 +918,20 @@ async function initializeSync(
     },
     playerTraits
   );
+
+  syncEngine.onMemeReceived = (senderId, memeId) => {
+    const meme = MEME_DATABASE.find(m => m.id === memeId);
+    if (!meme) return;
+
+    // 1. Play local audio
+    soundManager.playMemeSound(meme.filename);
+
+    // 2. Override avatar face emoji
+    if (threeRenderer) {
+      threeRenderer.tempOverrideFaceEmoji(senderId, meme.emoji);
+    }
+  };
+
   try {
     await syncEngine.start();
     updateUI(syncEngine.state);
