@@ -245,8 +245,8 @@ class SoundManager {
     }
   }
 
-  // Play a meme sound from local cache (no network fetch)
-  public playMemeSound(filename: string, _baseUrl?: string) {
+  // Play a meme sound from local cache with automatic network fallback
+  public playMemeSound(filename: string, baseUrl?: string) {
     if (this.soundMode !== 'on' && this.soundMode !== 'meme-only') return;
     const cached = this.audioCache.get(filename);
     if (cached) {
@@ -254,13 +254,23 @@ class SoundManager {
         const audio = new Audio(cached);
         audio.volume = 1.0;
         audio.play().catch(err => {
-          console.warn('Meme sound play failed:', err);
+          console.warn('Meme sound play failed from cache:', err);
         });
       } catch (e) {
-        console.warn('Audio play failed:', e);
+        console.warn('Audio play failed from cache:', e);
       }
     } else {
-      console.warn(`[SoundManager] Meme not cached: ${filename}`);
+      console.log(`[SoundManager] Meme not in local cache, fetching on-demand: ${filename}`);
+      try {
+        const host = baseUrl || `http://${window.location.hostname}:3000`;
+        const audio = new Audio(`${host}/meme/${encodeURIComponent(filename)}`);
+        audio.volume = 1.0;
+        audio.play().catch(err => {
+          console.warn('Meme sound play failed on-demand:', err);
+        });
+      } catch (e) {
+        console.warn('Audio play failed on-demand:', e);
+      }
     }
   }
 }
