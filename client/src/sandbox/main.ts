@@ -61,6 +61,72 @@ function renderMatchmaking() {
     threeRenderer = null;
   }
 
+  const savedToken = localStorage.getItem('webtabletop-relogin-token') || '';
+  const showRestoreBtn = savedToken ? 'block' : 'none';
+  const reconnectPanelHtml = `
+    <!-- Panel 4: Quick Reconnect Panel -->
+    <div class="sandbox-panel" style="margin-top: 16px;">
+      <h3 style="margin-top: 0; margin-bottom: 4px; font-size: 14px; color: white;">Quick Reconnect</h3>
+      <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0;">Rejoin your active game session instantly.</p>
+      <button class="action-btn btn-restore-last-session" style="display: ${showRestoreBtn}; padding: 10px; font-size: 13px; font-weight: bold; background: #10b981; color: white; border: none; border-radius: 8px; cursor: pointer; width: 100%; margin-bottom: 10px; text-align: center;">🔄 Restore Last Session</button>
+      <div style="display: flex; gap: 8px;">
+        <input type="text" class="input-reconnect-token" placeholder="Or paste login token..." style="flex-grow: 1; background: #121722; color: white; border: 1px solid var(--panel-border); padding: 8px; border-radius: 8px; font-size: 12px; outline: none; box-sizing: border-box; width: 100%;">
+        <button class="action-btn btn-token-reconnect" style="padding: 8px 14px; font-size: 12px; margin-right: 0; background: #8b5cf6; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold;">Rejoin</button>
+      </div>
+    </div>
+  `;
+
+  const reconnectWithToken = async (token: string) => {
+    try {
+      showError('');
+      const raw = atob(token.trim());
+      const { lobbyId, playerId, secretHash } = JSON.parse(raw);
+      
+      if (!lobbyId || !playerId || !secretHash) {
+        showError('Invalid token format.');
+        return;
+      }
+
+      const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state?playerId=${encodeURIComponent(playerId)}&secretHash=${encodeURIComponent(secretHash)}`);
+      
+      if (stateRes.status === 404) {
+        showError('Session lobby not found.');
+        return;
+      }
+
+      if (stateRes.ok) {
+        const stateData = await stateRes.json();
+        initializeSync(lobbyId, playerId, secretHash, true, stateData.state);
+      } else {
+        initializeSync(lobbyId, playerId, secretHash, false, undefined);
+      }
+    } catch (err: any) {
+      showError(`Failed to rejoin session: ${err.message}`);
+    }
+  };
+
+  const bindReconnectListeners = (container: HTMLElement) => {
+    container.querySelectorAll('.btn-restore-last-session').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const token = localStorage.getItem('webtabletop-relogin-token') || '';
+        if (token) reconnectWithToken(token);
+      });
+    });
+
+    container.querySelectorAll('.btn-token-reconnect').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const parent = (e.currentTarget as HTMLElement).parentElement;
+        const input = parent?.querySelector('.input-reconnect-token') as HTMLInputElement;
+        const token = input?.value.trim();
+        if (token) {
+          reconnectWithToken(token);
+        } else {
+          showError('Please paste a reconnect token.');
+        }
+      });
+    });
+  };
+
   const traits = getSavedAvatar();
 
   app.innerHTML = `
@@ -152,6 +218,8 @@ function renderMatchmaking() {
             <input type="file" class="input-upload-replay" accept=".json" style="background: #121722; border: 1px solid var(--panel-border); padding: 10px; border-radius: 8px; width: 100%;">
           </div>
 
+          ${reconnectPanelHtml}
+
           <div class="error-toast matchmaking-error" style="margin-top: 12px;"></div>
         </div>
       </div>
@@ -242,6 +310,8 @@ function renderMatchmaking() {
             <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0;">Step through match event history from a save file.</p>
             <input type="file" class="input-upload-replay" accept=".json" style="background: #121722; border: 1px solid var(--panel-border); padding: 8px; border-radius: 8px; width: 100%; box-sizing: border-box; font-size: 12px; color: var(--text-muted);">
           </div>
+
+          ${reconnectPanelHtml}
         </div>
       </div>
       <div class="error-toast matchmaking-error" style="margin: 16px;"></div>
@@ -336,6 +406,9 @@ function renderMatchmaking() {
     input.addEventListener('change', handleUploadReplay);
   });
 
+  // Reconnect token listeners
+  bindReconnectListeners(app);
+
   document.getElementById('btn-create-lobby')?.addEventListener('click', async () => {
     showError('');
     const userTraits = getSavedAvatar();
@@ -379,43 +452,14 @@ function renderMatchmaking() {
       const data = await res.json();
 
       // Only host fetches state from server; peers sync from host via WebRTC.
-      initializeSync(lobbyId, data.playerId, data.secretHash, false, undefined, { ...userTraits, isSpectator: isSpec });
+      const finalIsSpec = isSpec || !!data.isSpectator;
+      initializeSync(lobbyId, data.playerId, data.secretHash, false, undefined, { ...userTraits, isSpectator: finalIsSpec });
     } catch (err: any) {
       showError(`Failed to join lobby: ${err.message}`);
     }
   });
 
-  document.getElementById('btn-reconnect-lobby')?.addEventListener('click', async () => {
-    showError('');
-    const lobbyId = (document.getElementById('recon-lobby') as HTMLInputElement).value.toUpperCase().trim();
-    const playerId = (document.getElementById('recon-player') as HTMLInputElement).value.trim();
-    const secretHash = (document.getElementById('recon-hash') as HTMLInputElement).value.trim();
 
-    if (!lobbyId || !playerId || !secretHash) {
-      showError('All reconnect fields are required.');
-      return;
-    }
-
-    try {
-      const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state?playerId=${encodeURIComponent(playerId)}&secretHash=${encodeURIComponent(secretHash)}`);
-      
-      if (stateRes.status === 404) {
-        showError('Session lobby not found.');
-        return;
-      }
-
-      if (stateRes.ok) {
-        // Authorized: This player is the active Host. Get state from server.
-        const stateData = await stateRes.json();
-        initializeSync(lobbyId, playerId, secretHash, true, stateData.state);
-      } else {
-        // Unauthorized/Forbidden: This player is a Peer. They will fetch state from the Host.
-        initializeSync(lobbyId, playerId, secretHash, false, undefined);
-      }
-    } catch (err: any) {
-      showError(`Reconnection error: ${err.message}`);
-    }
-  });
 
   document.getElementById('input-upload-replay')?.addEventListener('change', (e) => {
     const file = (e.target as HTMLInputElement).files?.[0];
@@ -484,7 +528,8 @@ function renderJoinCodePane() {
       }
       const data = await res.json();
       // Only host fetches state from server; peers sync from host via WebRTC.
-      initializeSync(code, data.playerId, data.secretHash, false, undefined, { ...userTraits, isSpectator: isSpec });
+      const finalIsSpec = isSpec || !!data.isSpectator;
+      initializeSync(code, data.playerId, data.secretHash, false, undefined, { ...userTraits, isSpectator: finalIsSpec });
     } catch (err: any) {
       showError(`Failed to join lobby: ${err.message}`);
     }
@@ -645,6 +690,18 @@ async function initializeSync(
   timerLimit?: number
 ) {
   enableAutoFullscreen(); // Automatically request fullscreen on first click/touch in lobby or game
+  
+  // Save relogin token to localStorage & copy to clipboard
+  try {
+    const token = btoa(JSON.stringify({ lobbyId, playerId, secretHash }));
+    localStorage.setItem('webtabletop-relogin-token', token);
+    navigator.clipboard.writeText(token).then(() => {
+      triggerFloatingAlert('Session token copied to clipboard!');
+    }).catch(() => {});
+  } catch (err) {
+    console.warn('Failed to save reconnect token:', err);
+  }
+
   activeSeatId = playerId;
   isReplayMode = false;
   spectatingPlayerId = 'P1';
@@ -1738,8 +1795,10 @@ function buildGameplayLayout(activeGame: string, lobbyId: string, playerId: stri
     }
   });
 
-  document.getElementById('btn-exit-game')?.addEventListener('click', () => {
-    window.location.reload();
+  document.querySelectorAll('#btn-exit-game').forEach(btn => {
+    btn.addEventListener('click', () => {
+      window.location.reload();
+    });
   });
 
   const toggleBtn = document.getElementById('btn-toggle-inspector');
