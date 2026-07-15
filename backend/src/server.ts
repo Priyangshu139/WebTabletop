@@ -1,13 +1,15 @@
 import express from 'express';
 import http from 'http';
 import crypto from 'crypto';
+import path from 'path';
 import { setupSignaling, lobbies } from './signaling.js';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
 // Serve meme sounds statically
-app.use('/meme', express.static('/home/priyangshu/WebTabletop/meme sound ogg'));
+const memePath = path.resolve(process.cwd(), '../meme sound ogg');
+app.use('/meme', express.static(memePath));
 
 // Enable JSON parsing
 app.use(express.json());
