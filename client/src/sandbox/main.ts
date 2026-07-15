@@ -18,8 +18,8 @@ let lastProcessedEventCount = 0;
 
 const isLocal = window.location.hostname === '127.0.0.1' || window.location.hostname === 'localhost';
 
-const REST_URL = import.meta.env.VITE_BACKEND_URL 
-  ? import.meta.env.VITE_BACKEND_URL.replace(/\/$/, '')
+const REST_URL = (import.meta as any).env?.VITE_BACKEND_URL 
+  ? (import.meta as any).env.VITE_BACKEND_URL.replace(/\/$/, '')
   : (isLocal ? 'http://localhost:3000' : `http://${window.location.hostname}:3000`);
 
 const WS_URL = REST_URL.replace(/^http/, 'ws');
@@ -3441,5 +3441,62 @@ function showColorSelectorModal(_card: any, callback: (color: string) => void) {
   });
 }
 
-// Initial matchmaking render
-renderMatchmaking();
+async function autoReconnectOnLoad() {
+  const token = localStorage.getItem('webtabletop-relogin-token') || '';
+  if (!token) {
+    renderMatchmaking();
+    return;
+  }
+
+  showSilentRejoinScreen();
+
+  try {
+    const raw = atob(token.trim());
+    const { lobbyId, playerId, secretHash } = JSON.parse(raw);
+    
+    if (!lobbyId || !playerId || !secretHash) {
+      renderMatchmaking();
+      return;
+    }
+
+    const infoRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/info?playerId=${encodeURIComponent(playerId)}&secretHash=${encodeURIComponent(secretHash)}`);
+    if (!infoRes.ok) {
+      localStorage.removeItem('webtabletop-relogin-token');
+      renderMatchmaking();
+      return;
+    }
+
+    const infoData = await infoRes.json();
+    const targetHostId = infoData.hostId;
+
+    if (targetHostId === playerId) {
+      const stateRes = await fetch(`${REST_URL}/api/lobby/${lobbyId}/state?playerId=${encodeURIComponent(playerId)}&secretHash=${encodeURIComponent(secretHash)}`);
+      if (stateRes.ok) {
+        const stateData = await stateRes.json();
+        initializeSync(lobbyId, playerId, secretHash, true, stateData.state);
+      } else {
+        initializeSync(lobbyId, playerId, secretHash, true, undefined);
+      }
+    } else {
+      initializeSync(lobbyId, playerId, secretHash, false, undefined, undefined, undefined, undefined, targetHostId);
+    }
+  } catch (err) {
+    console.warn('Silent auto-reconnect failed:', err);
+    renderMatchmaking();
+  }
+}
+
+function showSilentRejoinScreen() {
+  if (!app) return;
+  app.style.gridTemplateColumns = '1fr';
+  app.innerHTML = `
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0f141c; color: white; font-family: 'Outfit', sans-serif;">
+      <div class="pulse-green-dot" style="width: 16px; height: 16px; background-color: #60a5fa; box-shadow: 0 0 12px #60a5fa; margin-bottom: 24px; border-radius: 50%;"></div>
+      <h2 style="font-weight: 600; margin: 0 0 8px 0; font-size: 18px; letter-spacing: 0.5px;">Rejoining Tabletop Session...</h2>
+      <p style="color: #64748b; font-size: 13px; margin: 0;">Restoring your active game state...</p>
+    </div>
+  `;
+}
+
+// Auto-reconnect or matchmaking render
+autoReconnectOnLoad();
